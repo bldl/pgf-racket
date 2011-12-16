@@ -2,14 +2,18 @@
 
 (require "hl.rkt")
 (require "prim.rkt")
+(require "tree-example.rkt")
 (require "util.rkt")
 
 ;;; Test code
 
 (define (test w d)
-  (pretty-nl (list w d (pretty w d))))
+  (prettyln (list w d (pretty w d))))
 
-(for* ((w '(5 10 15 20 25))
+(define w-lst '(5 10 15 25 35 45))
+
+#;
+(for* ((w w-lst)
        (d (list
            (text "foo")
            (text "foobar")
@@ -19,4 +23,10 @@
            (stack (list (text "foo") (text "bar") (text "baz")))
            )))
       (test w d))
+
+(for ((w w-lst))
+     (printfln "testtree (w=~a)" w)
+     (newline)
+     (testtree w)
+     (newline))
 

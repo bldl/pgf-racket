@@ -83,7 +83,7 @@
   (cond
    ((< w 0) #f)
    ((Nil? d) #t)
-   ((Text? d) (fits (- w (string-length (Text-s d)) (Text-doc d))))
+   ((Text? d) (fits (- w (string-length (Text-s d))) (Text-doc d)))
    ((Line? d) #t)))
 
 (define* (pretty w x)

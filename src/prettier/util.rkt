@@ -30,20 +30,23 @@
        (define-syntax name body ...)
        (provide name)))))
 
-(define* write-nl
+(define* println
+  (case-lambda
+    ((datum) (begin (print datum) (newline)))
+    ((datum out) (begin (print datum out) (newline out)))))
+
+(define* writeln
   (case-lambda
     ((datum) (begin (write datum) (newline)))
     ((datum out) (begin (write datum out) (newline out)))))
 
-(define* display-nl
-  (case-lambda
-    ((datum) (begin (display datum) (newline)))
-    ((datum out) (begin (display datum out) (newline out)))))
-
-(define* pretty-nl
+(define* prettyln
   (case-lambda
     ((datum) (begin (pretty-print datum) (newline)))
     ((datum out) (begin (pretty-print datum out) (newline out)))))
+
+(define* (printfln . args)
+  (apply printf args) (newline))
 
 (define-syntax data-for
   (syntax-rules ()
