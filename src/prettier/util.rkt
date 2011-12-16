@@ -40,7 +40,7 @@
     ((datum) (begin (write datum) (newline)))
     ((datum out) (begin (write datum out) (newline out)))))
 
-(define* prettyln
+(define* pretty-println
   (case-lambda
     ((datum) (begin (pretty-print datum) (newline)))
     ((datum out) (begin (pretty-print datum out) (newline out)))))

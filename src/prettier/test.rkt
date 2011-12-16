@@ -8,7 +8,7 @@
 ;;; Test code
 
 (define (test w d)
-  (prettyln (list w d (pretty w d))))
+  (pretty-println (list w d (pretty w d))))
 
 (define w-lst '(5 10 15 25 35 45 55))
 
