@@ -24,6 +24,8 @@
   (if (null? rest) x
       (CONCAT x (apply concat rest))))
 
+(provide (rename-out (UNION private-union)))
+
 (define* (group x) (UNION (flatten x) x))
 
 (define* (flatten d)

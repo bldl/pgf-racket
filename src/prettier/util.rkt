@@ -1,5 +1,7 @@
 #lang racket
 
+(require (only-in srfi/13 string-trim-both))
+
 (provide define* define-syntax*)
 
 (define-syntax define*
@@ -63,3 +65,6 @@
   (syntax-rules ()
     ((_ fn arg ...)
      (lambda rest (apply fn arg ... rest)))))
+
+(define* (words s)
+  (regexp-split #px"\\s+" (string-trim-both s)))
