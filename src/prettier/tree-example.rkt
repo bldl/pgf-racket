@@ -31,6 +31,29 @@
                 (line)
                 (show-trees ts)))))
 
+(define (show-tree^ t)
+  (let ((s (Node-s t))
+        (ts (Node-lst t)))
+    (concat (text s)
+            (show-bracket^ ts))))
+
+(define (show-bracket^ ts)
+  (if (null? ts)
+      (nil)
+      (bracket "[" (show-trees^ ts) "]")))
+
+;; The paper uses exactly the same implementation as for show-trees,
+;; but that is probably not right.
+(define (show-trees^ lst)
+  (let ((t (car lst))
+        (ts (cdr lst)))
+    (if (null? ts)
+        (show-tree^ t)
+        (concat (show-tree^ t)
+                (text ",")
+                (line)
+                (show-trees^ ts)))))
+
 (define tree
   (Node "aaa" (list
                (Node "bbbbb" (list
@@ -47,3 +70,6 @@
 
 (define* (testtree w)
   (displayln (pretty w (show-tree tree))))
+
+(define* (testtree^ w)
+  (displayln (pretty w (show-tree^ tree))))

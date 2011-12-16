@@ -10,7 +10,7 @@
 (define (test w d)
   (prettyln (list w d (pretty w d))))
 
-(define w-lst '(5 10 15 25 35 45))
+(define w-lst '(5 10 15 25 35 45 55))
 
 #;
 (for* ((w w-lst)
@@ -24,9 +24,9 @@
            )))
       (test w d))
 
-(for ((w w-lst))
-     (printfln "testtree (w=~a)" w)
-     (newline)
-     (testtree w)
-     (newline))
-
+(for* ((w w-lst)
+       (test (list testtree testtree^)))
+      (printfln "~a (w=~a)" test w)
+      (newline)
+      (test w)
+      (newline))
