@@ -45,7 +45,7 @@
     ((datum) (begin (pretty-print datum) (newline)))
     ((datum out) (begin (pretty-print datum out) (newline out)))))
 
-(define-syntax* data-for
+(define-syntax data-for
   (syntax-rules ()
     ((_ nm ())
      (void))
