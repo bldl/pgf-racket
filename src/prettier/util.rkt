@@ -30,6 +30,13 @@
        (define-syntax name body ...)
        (provide name)))))
 
+(define-syntax define-syntax-rule*
+  (syntax-rules ()
+    ((_ (name rest ...) body)
+     (begin
+       (define-syntax-rule (name rest ...) body)
+       (provide name)))))
+  
 (define* println
   (case-lambda
     ((datum) (begin (print datum) (newline)))

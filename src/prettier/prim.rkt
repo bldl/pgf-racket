@@ -9,11 +9,22 @@
            (NEST n doc) ;; integer, DOC -> DOC
            (TEXT s) ;; string -> DOC
            (LINE) ;; -> DOC
-           (UNION ldoc rdoc))) ;; DOC, DOC -> DOC
+           (pUNION ldoc rdoc))) ;; promise of DOC, promise of DOC -> DOC
 
 (data Doc ((Nil) ;; -> Doc
            (Text s doc) ;; string, Doc -> Doc
            (Line n doc))) ;; integer, Doc -> Doc
+
+(define UNION? pUNION?)
+
+(define (UNION-ldoc x)
+  (force (pUNION-ldoc x)))
+
+(define (UNION-rdoc x)
+  (force (pUNION-rdoc x)))
+
+(define-syntax-rule (UNION l r)
+  (pUNION (delay l) (delay r)))
 
 (define* nil NIL)
 (define* nest NEST)
@@ -47,9 +58,9 @@
                              (make-string (Line-n d) #\space)
                              (layout (Line-doc d))))))
 
-(struct Be (i doc))
+(struct Be (i doc) #:transparent)
 
-(define (best w k x)
+(define* (best w k x)
   (be w k (list (Be 0 x))))
 
 (define (be w k lst)
@@ -77,6 +88,7 @@
                   (be w k (cons (Be i (UNION-rdoc d)) z))))))))
 
 (define (better w k x y)
+  ;; Note that if 'x' fits, 'y' is not needed.
   (if (fits (- w k) x) x y))
 
 (define (fits w d)
@@ -86,5 +98,5 @@
    ((Text? d) (fits (- w (string-length (Text-s d))) (Text-doc d)))
    ((Line? d) #t)))
 
-(define* (pretty w x)
-  (layout (best w 0 x)))
+(define* (pretty w d)
+  (layout (best w 0 d)))
