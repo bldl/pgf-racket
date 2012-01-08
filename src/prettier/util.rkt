@@ -30,7 +30,7 @@
        (define-syntax name body ...)
        (provide name)))))
 
-(define-syntax define-syntax-rule*
+(define-syntax* define-syntax-rule*
   (syntax-rules ()
     ((_ (name rest ...) body)
      (begin
@@ -78,3 +78,8 @@
 
 (define* (words s)
   (regexp-split #px"\\s+" (string-trim-both s)))
+
+(define* (force/rec d)
+  (if (promise? d)
+      (force/rec (force d))
+      d))

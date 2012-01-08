@@ -1,0 +1,74 @@
+#lang racket
+
+;;; 
+;;; This module makes it relatively easy to define lazy abstract data
+;;; types that follow the "even" style, as described in the paper "How
+;;; to add laziness to a strict language without even being odd" by
+;;; Wadler et al.
+;;; 
+
+#|
+As an example, the macro invocation
+
+  (lazy-data DOC ((NIL) 
+                  (NEST n (susp doc))))
+
+would expand to
+
+  (begin
+    (struct DOC_ () #:transparent)
+    (struct NIL_ DOC_ () #:transparent)
+    (define-syntax-rule (NIL) (delay (NIL_)))
+    (struct NEST_ DOC_ (n doc) #:transparent)
+    (define-syntax-rule (NEST n doc) (delay (NEST_ n (delay doc)))))
+|#
+
+(require "util.rkt")
+(require (for-syntax racket/syntax))
+
+(define-syntax (lazy-data-ctors stx)
+  (syntax-case stx ()
+    ((_ _ ())
+     #'(void))
+    ((_ (adt adt_) (((ctor ctor_) fld ...) more ...))
+     (let* ((a (syntax (fld ...)))
+            (b (syntax->list a))
+            (fld-names (map (lambda (stx)
+                              (syntax-case stx (susp)
+                                ((susp fld) #'fld)
+                                (fld #'fld))) b))
+            (ctor-args (map (lambda (stx)
+                              (syntax-case stx (susp)
+                                ((susp fld) #'(delay fld))
+                                (fld #'fld))) b)))
+       #`(begin
+           (struct ctor_ adt_ (#,@fld-names) #:transparent)
+           (define-syntax-rule (ctor #,@fld-names)
+             (delay (ctor_ #,@ctor-args)))
+           (lazy-data-ctors (adt adt_) (more ...))
+           )))))
+
+(define-syntax lazy-data-sub
+  (syntax-rules ()
+    ((_ (adt adt_) lst)
+     (begin
+       (struct adt_ () #:transparent)
+       (lazy-data-ctors (adt adt_) lst)
+       ))))
+
+;; We retrict introductions of new identifiers into this top-level
+;; macro, where we have a reference to the correct lexical context
+;; into which the identifiers belong.
+(define-syntax* (lazy-data stx)
+  (define (mk_ n)
+    (format-id stx "~a_" n))
+  (syntax-case stx ()
+    ((_ adt lst)
+     (let* ((a (syntax->list #'lst))
+            (nlst (map
+                   (lambda (x)
+                     (define b (syntax->list x))
+                     (define c (car b))
+                     #`((#,c #,(mk_ c)) #,@(cdr b)))
+                   a)))
+       #`(lazy-data-sub (adt #,(mk_ #'adt)) (#,@nlst))))))
