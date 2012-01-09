@@ -83,3 +83,7 @@
   (if (promise? d)
       (force/rec (force d))
       d))
+
+(define-syntax-rule*
+  (with-forced d body ...)
+  (let ((d (force d))) body ...))
