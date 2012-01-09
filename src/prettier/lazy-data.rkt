@@ -18,9 +18,9 @@ would expand to
   (begin
     (struct DOC_ () #:transparent)
     (struct NIL_ DOC_ () #:transparent)
-    (define-syntax-rule (NIL) (delay (NIL_)))
+    (define-syntax-rule (NIL) (lazy (NIL_)))
     (struct NEST_ DOC_ (n doc) #:transparent)
-    (define-syntax-rule (NEST n doc) (delay (NEST_ n (delay doc)))))
+    (define-syntax-rule (NEST n doc) (lazy (NEST_ n (lazy doc)))))
 |#
 
 (require "util.rkt")
@@ -39,12 +39,12 @@ would expand to
                                 (fld #'fld))) b))
             (ctor-args (map (lambda (stx)
                               (syntax-case stx (susp)
-                                ((susp fld) #'(delay fld))
+                                ((susp fld) #'(lazy fld))
                                 (fld #'fld))) b)))
        #`(begin
            (struct ctor_ adt_ (#,@fld-names) #:transparent)
            (define-syntax-rule (ctor #,@fld-names)
-             (delay (ctor_ #,@ctor-args)))
+             (lazy (ctor_ #,@ctor-args)))
            (lazy-data-ctors (adt adt_) (more ...))
            )))))
 

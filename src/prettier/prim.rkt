@@ -14,21 +14,21 @@
                 (UNION (susp ldoc) (susp rdoc)))) ;; DOC, DOC -> DOC
 
 ;; xxx could have our macro create these also
-(define (NIL? doc) (NIL_? (force/rec doc)))
-(define (CONCAT? doc) (CONCAT_? (force/rec doc)))
-(define (NEST? doc) (NEST_? (force/rec doc)))
-(define (TEXT? doc) (TEXT_? (force/rec doc)))
-(define (LINE? doc) (LINE_? (force/rec doc)))
-(define (UNION? doc) (UNION_? (force/rec doc)))
+(define (NIL? doc) (NIL_? (force doc)))
+(define (CONCAT? doc) (CONCAT_? (force doc)))
+(define (NEST? doc) (NEST_? (force doc)))
+(define (TEXT? doc) (TEXT_? (force doc)))
+(define (LINE? doc) (LINE_? (force doc)))
+(define (UNION? doc) (UNION_? (force doc)))
 
 ;; xxx could have our macro create these also
-(define (CONCAT-ldoc doc) (CONCAT_-ldoc (force/rec doc)))
-(define (CONCAT-rdoc doc) (CONCAT_-rdoc (force/rec doc)))
-(define (NEST-n doc) (NEST_-n (force/rec doc)))
-(define (NEST-doc doc) (NEST_-doc (force/rec doc)))
-(define (TEXT-s doc) (TEXT_-s (force/rec doc)))
-(define (UNION-ldoc doc) (UNION_-ldoc (force/rec doc)))
-(define (UNION-rdoc doc) (UNION_-rdoc (force/rec doc)))
+(define (CONCAT-ldoc doc) (CONCAT_-ldoc (force doc)))
+(define (CONCAT-rdoc doc) (CONCAT_-rdoc (force doc)))
+(define (NEST-n doc) (NEST_-n (force doc)))
+(define (NEST-doc doc) (NEST_-doc (force doc)))
+(define (TEXT-s doc) (TEXT_-s (force doc)))
+(define (UNION-ldoc doc) (UNION_-ldoc (force doc)))
+(define (UNION-rdoc doc) (UNION_-rdoc (force doc)))
 
 (define* (to-sexp doc)
   (cond
@@ -69,7 +69,7 @@
   ;; Even after forcing, a promise still remains a promise. Here we
   ;; redefine 'd' as a non-promise. (Assuming of course there were no
   ;; multiple promise wrappers.)
-  (define d (force/rec d))
+  (define d (force d))
   (cond
    ((NIL_? d) d)
    ((CONCAT_? d) (CONCAT (flatten (CONCAT-ldoc d))
@@ -99,7 +99,7 @@
   (if (null? lst) (Nil)
       (let* ((h (car lst))
              (i (Be-i h))
-             (d (force/rec (Be-doc h)))
+             (d (force (Be-doc h)))
              (z (cdr lst)))
         ;;(displayln d)
         (cond
