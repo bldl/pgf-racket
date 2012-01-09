@@ -17,6 +17,7 @@ would expand to
 
   (begin
     (struct DOC_ () #:transparent)
+    (define (DOC? x) (DOC_? (force x)))
     (struct NIL_ DOC_ () #:transparent)
     (define-syntax-rule (NIL) (lazy (NIL_)))
     (struct NEST_ DOC_ (n doc) #:transparent)
@@ -50,9 +51,10 @@ would expand to
 
 (define-syntax lazy-data-sub
   (syntax-rules ()
-    ((_ (adt adt_) lst)
+    ((_ (adt adt_ adt? adt_?) lst)
      (begin
        (struct adt_ () #:transparent)
+       (define (adt? x) (adt_? (force x)))
        (lazy-data-ctors (adt adt_) lst)
        ))))
 
@@ -62,6 +64,10 @@ would expand to
 (define-syntax* (lazy-data stx)
   (define (mk_ n)
     (format-id stx "~a_" n))
+  (define (mk? n)
+    (format-id stx "~a?" n))
+  (define (mk_? n)
+    (format-id stx "~a_?" n))
   (syntax-case stx ()
     ((_ adt lst)
      (let* ((a (syntax->list #'lst))
@@ -70,5 +76,9 @@ would expand to
                      (define b (syntax->list x))
                      (define c (car b))
                      #`((#,c #,(mk_ c)) #,@(cdr b)))
-                   a)))
-       #`(lazy-data-sub (adt #,(mk_ #'adt)) (#,@nlst))))))
+                   a))
+            (adt^ #'adt))
+       #`(lazy-data-sub (adt #,(mk_ adt^)
+                             #,(mk? adt^)
+                             #,(mk_? adt^))
+                        (#,@nlst))))))
