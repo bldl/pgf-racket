@@ -1,6 +1,7 @@
 #lang racket
 
 (require "lazy-data.rkt")
+(require "profile.rkt")
 (require "util.rkt")
 
 ;;; The pretty printer
@@ -100,6 +101,7 @@
              (i (Be-i h))
              (d (force/rec (Be-doc h)))
              (z (cdr lst)))
+        ;;(displayln d)
         (cond
          ((NIL_? d)
           (be w k z))
