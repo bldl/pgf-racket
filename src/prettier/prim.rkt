@@ -13,23 +13,6 @@
                 (LINE) ;; -> DOC
                 (UNION (susp ldoc) (susp rdoc)))) ;; DOC, DOC -> DOC
 
-;; xxx could have our macro create these also
-(define (NIL? doc) (NIL_? (force doc)))
-(define (CONCAT? doc) (CONCAT_? (force doc)))
-(define (NEST? doc) (NEST_? (force doc)))
-(define (TEXT? doc) (TEXT_? (force doc)))
-(define (LINE? doc) (LINE_? (force doc)))
-(define (UNION? doc) (UNION_? (force doc)))
-
-;; xxx could have our macro create these also
-(define (CONCAT-ldoc doc) (CONCAT_-ldoc (force doc)))
-(define (CONCAT-rdoc doc) (CONCAT_-rdoc (force doc)))
-(define (NEST-n doc) (NEST_-n (force doc)))
-(define (NEST-doc doc) (NEST_-doc (force doc)))
-(define (TEXT-s doc) (TEXT_-s (force doc)))
-(define (UNION-ldoc doc) (UNION_-ldoc (force doc)))
-(define (UNION-rdoc doc) (UNION_-rdoc (force doc)))
-
 (define* (to-sexp doc)
   (cond
    ((promise? doc) `(promise ,(to-sexp (force doc))))

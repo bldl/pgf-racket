@@ -18,10 +18,16 @@ would expand to
   (begin
     (struct DOC_ () #:transparent)
     (define (DOC? x) (DOC_? (force x)))
+
     (struct NIL_ DOC_ () #:transparent)
     (define-syntax-rule (NIL) (lazy (NIL_)))
+    (define (NIL? x) (NIL_? (force x)))
+
     (struct NEST_ DOC_ (n doc) #:transparent)
-    (define-syntax-rule (NEST n doc) (lazy (NEST_ n (lazy doc)))))
+    (define-syntax-rule (NEST n doc) (lazy (NEST_ n (lazy doc))))
+    (define (NEST? x) (NEST_? (force x)))
+    (define (NEST-n x) (NEST_-n (force x)))
+    (define (NEST-doc x) (NEST_-doc (force x))))
 |#
 
 (require "util.rkt")
@@ -48,6 +54,15 @@ would expand to
            (define-syntax-rule (ctor #,@fld-names)
              (lazy (ctor_ #,@ctor-args)))
            (lazy-data-ctors (adt adt_) (more ...))
+           #,@(let* ((get (lambda (stx n f)
+                            (format-id stx "~a-~a" n f)))
+                     (ctor^ (syntax ctor))
+                     (ctor_^ (syntax ctor_)))
+                (map
+                 (lambda (fld)
+                   #`(define (#,(get fld ctor^ fld) x)
+                       (#,(get fld ctor_^ fld) (force x))))
+                 fld-names))
            )))))
 
 (define-syntax lazy-data-sub
@@ -59,9 +74,6 @@ would expand to
        (lazy-data-ctors (adt adt_) lst)
        ))))
 
-;; We retrict introductions of new identifiers into this top-level
-;; macro, where we have a reference to the correct lexical context
-;; into which the identifiers belong.
 (define-syntax* (lazy-data stx)
   (define (mk_ n)
     (format-id stx "~a_" n))
