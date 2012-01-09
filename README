@@ -6,10 +6,11 @@ port such that anyone comparing it against what is given in Wadler's
 paper would be convinced that it implements the same algorithm.
 
 In my opinion the Racket code reads much the same as the Haskell code.
-The Racket version defines some custom macros to enable this. Two
+The Racket version defines some custom macros to enable this. The
 remaining differences in the way the code reads is that the Racket
 version is not using overloading or pattern matching, which are
-somewhat atypical in Scheme code.
+somewhat atypical in Scheme code, and also that laziness is somewhat
+more explicit in the Racket code, but not overly so.
 
 Racket includes the 'match' pattern matcher and also a 'struct*'
 pattern form which we could have used, but given that the patterns
@@ -21,14 +22,14 @@ printing primitives this also didn't seem worthwhile, and we're simply
 doing our "dispatch" within functions using 'cond' and other
 conditional expressions.
 
-An important difference that does *not* read from the code is
-Haskell's lazy evaluation semantics vs. Racket's strict evaluation
-semantics. This is something must yet address as it destroys the
+The most significant difference while translating was Haskell's lazy
+evaluation semantics vs. Racket's strict evaluation semantics. Had we
+not used promises to address this issue it would have destroyed the
 performance of the Racket version; for instance formatting this
-document with the Racket version would not be feasible. We'd like to
-add "even" laziness to all the right places without completely
-overhauling the Racket code. Wadler's own paper on laziness [2] might
-offer some insight on how to do this.
+document with the Racket version would not have been feasible. Hence
+we added "even" laziness to all the right places without completely
+overhauling the Racket code. Our approach is based on Wadler's own
+paper on laziness [2].
 
 References
 
