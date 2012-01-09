@@ -1,7 +1,6 @@
 #lang racket
 
 (require "lazy-data.rkt")
-(require "profile.rkt")
 (require "util.rkt")
 
 ;;; The pretty printer
