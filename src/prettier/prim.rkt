@@ -35,30 +35,25 @@
   (TEXT s))
 
 (define* (flatten d)
-  ;; Even after forcing, a promise still remains a promise. Here we
-  ;; redefine 'd' as a non-promise. If there are multiple 'lazy'
-  ;; wrappers, a single force will force them all.
-  (let ((d (force d)))
-    (cond
-     ((NIL_? d) d)
-     ((CONCAT_? d) (CONCAT (flatten (CONCAT_-ldoc d))
-                           (flatten (CONCAT_-rdoc d))))
-     ((NEST_? d) (NEST (NEST_-n d) (flatten (NEST_-doc d))))
-     ((TEXT_? d) d)
-     ((LINE_? d) (TEXT " "))
-     ((UNION_? d) (flatten (UNION_-ldoc d)))
-     (else (error "flatten: unexpected" d)))))
+  (cond
+   ((NIL? d) d)
+   ((CONCAT? d) (CONCAT (flatten (CONCAT-ldoc d))
+                        (flatten (CONCAT-rdoc d))))
+   ((NEST? d) (NEST (NEST-n d) (flatten (NEST-doc d))))
+   ((TEXT? d) d)
+   ((LINE? d) (TEXT " "))
+   ((UNION? d) (flatten (UNION-ldoc d)))
+   (else (error "flatten: unexpected" d))))
 
 (define* (layout d)
-  (let ((d (force d)))
-    (cond
-     ((Nil_? d) "")
-     ((Text_? d) (string-append (Text_-s d)
-                                (layout (Text_-doc d))))
-     ((Line_? d) (string-append "\n"
-                                (make-string (Line_-n d) #\space)
-                                (layout (Line_-doc d))))
-     (else (error "layout: unexpected" d)))))
+  (cond
+   ((Nil? d) "")
+   ((Text? d) (string-append (Text-s d)
+                             (layout (Text-doc d))))
+   ((Line? d) (string-append "\n"
+                             (make-string (Line-n d) #\space)
+                             (layout (Line-doc d))))
+   (else (error "layout: unexpected" d))))
 
 (struct Be (i doc) #:transparent)
 
@@ -69,25 +64,25 @@
   (if (null? lst) (Nil)
       (let* ((h (car lst))
              (i (Be-i h))
-             (d (force (Be-doc h)))
+             (d (Be-doc h))
              (z (cdr lst)))
         (cond
-         ((NIL_? d)
+         ((NIL? d)
           (be w k z))
-         ((CONCAT_? d)
-          (be w k (cons (Be i (CONCAT_-ldoc d))
-                        (cons (Be i (CONCAT_-rdoc d)) z))))
-         ((NEST_? d)
-          (be w k (cons (Be (+ i (NEST_-n d)) (NEST_-doc d)) z)))
-         ((TEXT_? d)
-          (let ((s (TEXT_-s d)))
+         ((CONCAT? d)
+          (be w k (cons (Be i (CONCAT-ldoc d))
+                        (cons (Be i (CONCAT-rdoc d)) z))))
+         ((NEST? d)
+          (be w k (cons (Be (+ i (NEST-n d)) (NEST-doc d)) z)))
+         ((TEXT? d)
+          (let ((s (TEXT-s d)))
             (Text s (be w (+ k (string-length s)) z))))
-         ((LINE_? d)
+         ((LINE? d)
           (Line i (be w i z)))
-         ((UNION_? d)
+         ((UNION? d)
           (better w k
-                  (be w k (cons (Be i (UNION_-ldoc d)) z))
-                  (delay (be w k (cons (Be i (UNION_-rdoc d)) z)))))
+                  (be w k (cons (Be i (UNION-ldoc d)) z))
+                  (delay (be w k (cons (Be i (UNION-rdoc d)) z)))))
          (else (error "be: unexpected" d))))))
 
 (define (better w k x y)
@@ -95,17 +90,16 @@
   (if (fits (- w k) x) x (force y)))
 
 (define (fits w d)
-  (if (< w 0) #f
-      (let ((d (force d)))
-        (cond
-         ((Nil_? d) #t)
-         ;; We don't want to force (Text-doc d) if (Text-s d) doesn't
-         ;; fit.
-         ((Text_? d) (fits (- w (string-length (Text_-s d))) (Text_-doc d)))
-         ;; It is quite important that we don't force (Line-doc d) in
-         ;; this case.
-         ((Line_? d) #t)
-         (else (error "fits: unexpected" d))))))
+  (cond
+   ((< w 0) #f)
+   ((Nil? d) #t)
+   ;; We don't want to force (Text-doc d) if (Text-s d) doesn't
+   ;; fit.
+   ((Text? d) (fits (- w (string-length (Text-s d))) (Text-doc d)))
+   ;; It is quite important that we don't force (Line-doc d) in
+   ;; this case.
+   ((Line? d) #t)
+   (else (error "fits: unexpected" d))))
 
 (define* (pretty w d)
   (layout (best w 0 d)))
