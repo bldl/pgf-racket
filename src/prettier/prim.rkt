@@ -12,8 +12,9 @@
            (UNION ldoc rdoc))) ;; DOC, DOC -> DOC
 
 (data Doc ((Nil) ;; -> Doc
-           (Text s doc) ;; string, Doc -> Doc
-           (Line n doc))) ;; integer, Doc -> Doc
+           (Text s) ;; string -> Doc
+           (Line n) ;; integer -> Doc
+           (Concat ldoc rdoc))) ;; Doc, Doc -> Doc
 
 (provide (rename-out (NIL nil)))
 (provide (rename-out (NEST nest)))
@@ -44,62 +45,106 @@
 (define* (layout d)
   (cond
    ((Nil? d) "")
-   ((Text? d) (string-append (Text-s d)
-                             (layout (Text-doc d))))
+   ((Text? d) (string-append (Text-s d)))
    ((Line? d) (string-append "\n"
-                             (make-string (Line-n d) #\space)
-                             (layout (Line-doc d))))
+                             (make-string (Line-n d) #\space)))
+   ((Concat? d) (string-append (layout (Concat-ldoc d))
+                               (layout (Concat-rdoc d))))
    (else (error "layout: unexpected" d))))
 
 ;;; 
 ;;; Formatting algorithm.
 ;;; 
 
+;; i:: nesting level (integer)
+;; doc:: document (DOC)
 (struct Be (i doc) #:transparent)
 
+;; doc:: formatted document (Doc)
+;; k:: current column (integer)
+;; lst:: unformatted documents with nesting levels (list of Be)
+(struct St (doc k lst) #:transparent)
+
+;; w:: page width (integer)
+;; k:: current column (integer)
+;; x:: remaining document (DOC)
+;; Returns:: formatted document (Doc)
 (define* (best w k x)
-  (be w k (list (Be 0 x))))
+  ;; Consume input until fully consumed.
+  (let recur ((st (St (Nil) k (list (Be 0 x)))))
+    (let ((st (be w st)))
+      (if (null? (St-lst st))
+          (St-doc st)
+          (recur st)))))
 
-(define (be w k lst)
-  (if (null? lst) (Nil)
-      (let* ((h (car lst))
-             (i (Be-i h))
-             (d (Be-doc h))
-             (z (cdr lst)))
-        (cond
-         ((NIL? d)
-          (be w k z))
-         ((CONCAT? d)
-          (be w k (cons (Be i (CONCAT-ldoc d))
-                        (cons (Be i (CONCAT-rdoc d)) z))))
-         ((NEST? d)
-          (be w k (cons (Be (+ i (NEST-n d)) (NEST-doc d)) z)))
-         ((TEXT? d)
-          (let ((s (TEXT-s d)))
-            (Text s (be w (+ k (string-length s)) z))))
-         ((LINE? d)
-          (Line i (be w i z)))
-         ((UNION? d)
-          (better w k
-                  (be w k (cons (Be i (UNION-ldoc d)) z))
-                  (be w k (cons (Be i (UNION-rdoc d)) z))))
-         (else (error "be: unexpected" d))))))
-
-(define (better w k x y)
-  ;; Note that if 'x' fits, 'y' is not needed.
-  (if (fits (- w k) x) x y))
+(define (be w st)
+  ;; It would be more idiomatic to Scheme to use recursion here, but
+  ;; we're instead using a loop as we don't want to rely on tail
+  ;; recursion. Scheme has it, but this is to make porting easier to
+  ;; languages that lack TCO.
+  (let recur ((st st))
+    (let ((lst (St-lst st)))
+      (if (null? lst)
+          st
+          (let* ((k (St-k st))
+                 (fd (St-doc st))
+                 (h (car lst))
+                 (i (Be-i h))
+                 (d (Be-doc h))
+                 (z (cdr lst)))
+            (cond
+             ((NIL? d)
+              (recur (St fd k z)))
+             ((CONCAT? d)
+              (recur (St fd k (cons (Be i (CONCAT-ldoc d))
+                                    (cons (Be i (CONCAT-rdoc d)) z)))))
+             ((NEST? d)
+              (recur (St fd k (cons (Be (+ i (NEST-n d)) (NEST-doc d)) z))))
+             ((TEXT? d)
+              (let ((s (TEXT-s d)))
+                (recur (St (Concat fd (Text s))
+                           (+ k (string-length s))
+                           z))))
+             ((LINE? d)
+              ;; Note that we do not 'recur' further here. Rather we
+              ;; return control to the caller. Here we lack the
+              ;; context to know whether to proceed further or not.
+              (St (Concat fd (Line i)) i z))
+             ((UNION? d)
+              ;; Note that here we call 'be' rather than invoking
+              ;; 'recur', as 'recur' doesn't "return", it just
+              ;; transfers control to the 'let'. Note, too, that we
+              ;; start with a fresh empty document to make it possible
+              ;; to compute its length easily.
+              (let ((l-st (be w (St (Nil) k 
+                                    (cons (Be i (UNION-ldoc d)) z)))))
+                (if (fits (- w k) (St-doc l-st))
+                    ;; Here, too, we return control, with the
+                    ;; assumption that either a line break or the end
+                    ;; of document has been encountered within the
+                    ;; UNION.
+                    (St (Concat fd (St-doc l-st))
+                        (St-k l-st) (St-lst l-st))
+                    ;; Left did not fit, we commit to right regardless
+                    ;; of whether it fits.
+                    (recur (St fd k (cons (Be i (UNION-rdoc d)) z))))))
+             (else (error "be: unexpected" d))))))))
 
 (define (fits w d)
-  (if (< w 0) #f
-      (cond
-       ((Nil? d) #t)
-       ;; We don't want to force (Text-doc d) if (Text-s d) doesn't
-       ;; fit.
-       ((Text? d) (fits (- w (string-length (Text-s d))) (Text-doc d)))
-       ;; It is quite important that we don't force (Line-doc d) in
-       ;; this case.
-       ((Line? d) #t)
-       (else (error "fits: unexpected" d)))))
+  (let recur ((w w)
+              (lst (list d)))
+    (cond
+     ((< w 0) #f)
+     ((null? lst) #t)
+     (else
+      (let ((d (car lst)))
+        (cond
+         ((Nil? d) (recur w (cdr lst)))
+         ((Text? d) (recur (- w (string-length (Text-s d))) (cdr lst)))
+         ((Line? d) #t)
+         ((Concat? d) (recur w (cons (Concat-ldoc d)
+                                     (cons (Concat-rdoc d) (cdr lst)))))
+         (else (error "fits: unexpected" d))))))))
 
 (define* (pretty w d)
   (layout (best w 0 d)))
@@ -116,6 +161,7 @@
    ((NEST? doc) `(nest ,(NEST-n doc)
                        ,(DOC-to-sexp (NEST-doc doc))))
    ((TEXT? doc) `(text ,(TEXT-s doc)))
+   ((LINE? doc) '(line))
    ((UNION? doc) `(concat ,(DOC-to-sexp (UNION-ldoc doc))
                           ,(DOC-to-sexp (UNION-rdoc doc))))
    (else (error "DOC-to-sexp: unexpected" doc))))
@@ -123,8 +169,8 @@
 (define* (Doc-to-sexp doc)
   (cond
    ((Nil? doc) '(nil))
-   ((Text? doc) `(text ,(Text-s doc)
-                       ,(Doc-to-sexp (Text-doc doc))))
-   ((Line? doc) `(line ,(Line-n doc)
-                       ,(Doc-to-sexp (Line-doc doc))))
+   ((Text? doc) `(text ,(Text-s doc)))
+   ((Line? doc) `(line ,(Line-n doc)))
+   ((Concat? doc) `(concat ,(Doc-to-sexp (Concat-ldoc doc))
+                           ,(Doc-to-sexp (Concat-rdoc doc))))
    (else (error "Doc-to-sexp: unexpected" doc))))
