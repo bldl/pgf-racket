@@ -8,7 +8,7 @@
            (CONCAT ldoc rdoc) ;; DOC, DOC -> DOC
            (NEST n doc) ;; integer, DOC -> DOC
            (TEXT s) ;; string -> DOC
-           (LINE s) ;; -> DOC
+           (LINE s) ;; string -> DOC
            (UNION ldoc rdoc))) ;; DOC, DOC -> DOC
 
 (data Doc ((Nil) ;; -> Doc
