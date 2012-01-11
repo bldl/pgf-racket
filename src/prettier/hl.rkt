@@ -36,6 +36,20 @@
 (define* (fillwords s)
   (folddoc <+/> (map text (words s))))
 
+(define* (cpp-directive s)
+  (nest 2
+        (folddoc
+         (lambda (x y)
+           (concat x (private-union (text " ") (line "\\")) y))
+         (map text (words s)))))
+
+(define* (cpp-if-else c-s t e)
+  (concat (cpp-directive (string-append "#if " c-s)) (line)
+          t (line)
+          (text "#else") (line)
+          e (line)
+          (text "#endif")))
+
 (define* (fill lst)
   (if (null? lst)
       (nil)

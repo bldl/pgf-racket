@@ -8,7 +8,7 @@
            (CONCAT ldoc rdoc) ;; DOC, DOC -> DOC
            (NEST n doc) ;; integer, DOC -> DOC
            (TEXT s) ;; string -> DOC
-           (LINE) ;; -> DOC
+           (LINE s) ;; -> DOC
            (UNION ldoc rdoc))) ;; DOC, DOC -> DOC
 
 (data Doc ((Nil) ;; -> Doc
@@ -19,7 +19,9 @@
 (provide (rename-out (NIL nil)))
 (provide (rename-out (NEST nest)))
 (provide (rename-out (TEXT text)))
-(provide (rename-out (LINE line)))
+
+(define* (line (hyphen ""))
+  (LINE hyphen))
 
 (define* concat
   (case-lambda
@@ -117,7 +119,7 @@
               ;; Note that we do not 'recur' further here. Rather we
               ;; return control to the caller. Here we lack the
               ;; context to know whether to proceed further or not.
-              (St (Concat fd (Line i)) i z))
+              (St (Concat fd (Concat (Text (LINE-s d)) (Line i))) i z))
              ((UNION? d)
               ;; Note that here we call 'be' rather than invoking
               ;; 'recur', as 'recur' doesn't "return", it just
@@ -169,7 +171,7 @@
    ((NEST? doc) `(nest ,(NEST-n doc)
                        ,(DOC-to-sexp (NEST-doc doc))))
    ((TEXT? doc) `(text ,(TEXT-s doc)))
-   ((LINE? doc) '(line))
+   ((LINE? doc) `(line ,(LINE-s doc)))
    ((UNION? doc) `(concat ,(DOC-to-sexp (UNION-ldoc doc))
                           ,(DOC-to-sexp (UNION-rdoc doc))))
    (else (error "DOC-to-sexp: unexpected" doc))))
