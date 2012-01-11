@@ -43,14 +43,22 @@
    (else (error "flatten: unexpected" d))))
 
 (define* (layout d)
-  (cond
-   ((Nil? d) "")
-   ((Text? d) (string-append (Text-s d)))
-   ((Line? d) (string-append "\n"
-                             (make-string (Line-n d) #\space)))
-   ((Concat? d) (string-append (layout (Concat-ldoc d))
-                               (layout (Concat-rdoc d))))
-   (else (error "layout: unexpected" d))))
+  ;; Concat is used a lot in the generated documents, in a deeply
+  ;; nesting manner, and hence there is potential for deep recursion
+  ;; in traversing. We avoid that by using a loop.
+  (let recur ((input (list d))
+              (output ""))
+    (shift-car
+     output d input input
+     (cond
+      ((Nil? d) (recur input output))
+      ((Text? d) (recur input (string-append output (Text-s d))))
+      ((Line? d) (recur input
+                        (string-append output "\n"
+                                       (make-string (Line-n d) #\space))))
+      ((Concat? d) (recur (cons (Concat-ldoc d)
+                                (cons (Concat-rdoc d) input)) output))
+      (else (error "layout: unexpected" d))))))
 
 ;;; 
 ;;; Formatting algorithm.

@@ -87,3 +87,11 @@
 (define-syntax-rule*
   (with-forced d body ...)
   (let ((d (force d))) body ...))
+
+(define-syntax-rule*
+  (shift-car empty-expr car-var cdr-var lst-var body ...)
+  (if (null? lst-var)
+      empty-expr
+      (let ((car-var (car lst-var))
+            (cdr-var (cdr lst-var)))
+        body ...)))
