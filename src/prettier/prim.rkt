@@ -4,21 +4,33 @@
 
 ;;; The pretty printer
 
+(data Lv ((LvInc n) ;; number -> Lv
+          (LvStr s) ;; string -> Lv
+          (Lv0))) ;; -> Lv
+
 (data DOC ((NIL) ;; -> DOC
            (CONCAT ldoc rdoc) ;; DOC, DOC -> DOC
-           (NEST n doc) ;; integer, DOC -> DOC
+           (NEST lv doc) ;; Lv, DOC -> DOC
            (TEXT s) ;; string -> DOC
            (LINE s) ;; string -> DOC
            (UNION ldoc rdoc))) ;; DOC, DOC -> DOC
 
 (data Doc ((Nil) ;; -> Doc
            (Text s) ;; string -> Doc
-           (Line n) ;; integer -> Doc
+           (Line s) ;; string -> Doc
            (Concat ldoc rdoc))) ;; Doc, Doc -> Doc
 
 (provide (rename-out (NIL nil)))
-(provide (rename-out (NEST nest)))
 (provide (rename-out (TEXT text)))
+
+(define* (nest n doc)
+  (NEST (LvInc n) doc))
+
+(define* (nest/str s doc)
+  (NEST (LvStr s) doc))
+
+(define* (nest/0 doc)
+  (NEST (Lv0) doc))
 
 (define* (line (hyphen ""))
   (LINE hyphen))
@@ -38,11 +50,20 @@
    ((NIL? d) d)
    ((CONCAT? d) (CONCAT (flatten (CONCAT-ldoc d))
                         (flatten (CONCAT-rdoc d))))
-   ((NEST? d) (NEST (NEST-n d) (flatten (NEST-doc d))))
+   ((NEST? d) (NEST (NEST-lv d) (flatten (NEST-doc d))))
    ((TEXT? d) d)
    ((LINE? d) (TEXT " "))
    ((UNION? d) (flatten (UNION-ldoc d)))
    (else (error "flatten: unexpected" d))))
+
+;; s:: previous indentation string (string)
+;; lv:: level specification (Lv)
+(define (margin s lv)
+  (cond
+   ((LvInc? lv) (string-append s (make-string (LvInc-n lv) #\space)))
+   ((LvStr? lv) (string-append s (LvStr-s lv)))
+   ((Lv0? lv) "")
+   (else (error "margin: unexpected" lv))))
 
 (define* (layout d)
   ;; Concat is used a lot in the generated documents, in a deeply
@@ -55,9 +76,7 @@
      (cond
       ((Nil? d) (recur input output))
       ((Text? d) (recur input (string-append output (Text-s d))))
-      ((Line? d) (recur input
-                        (string-append output "\n"
-                                       (make-string (Line-n d) #\space))))
+      ((Line? d) (recur input (string-append output "\n" (Line-s d))))
       ((Concat? d) (recur (cons (Concat-ldoc d)
                                 (cons (Concat-rdoc d) input)) output))
       (else (error "layout: unexpected" d))))))
@@ -66,7 +85,7 @@
 ;;; Formatting algorithm.
 ;;; 
 
-;; i:: nesting level (integer)
+;; i:: nesting string (string)
 ;; doc:: document (DOC)
 (struct Be (i doc) #:transparent)
 
@@ -81,7 +100,7 @@
 ;; Returns:: formatted document (Doc)
 (define* (best w k x)
   ;; Consume input until fully consumed.
-  (let recur ((st (St (Nil) k (list (Be 0 x)))))
+  (let recur ((st (St (Nil) k (list (Be "" x)))))
     (let ((st (be w st)))
       (if (null? (St-lst st))
           (St-doc st)
@@ -109,7 +128,8 @@
               (recur (St fd k (cons (Be i (CONCAT-ldoc d))
                                     (cons (Be i (CONCAT-rdoc d)) z)))))
              ((NEST? d)
-              (recur (St fd k (cons (Be (+ i (NEST-n d)) (NEST-doc d)) z))))
+              (recur (St fd k
+                         (cons (Be (margin i (NEST-lv d)) (NEST-doc d)) z))))
              ((TEXT? d)
               (let ((s (TEXT-s d)))
                 (recur (St (Concat fd (Text s))
@@ -119,7 +139,8 @@
               ;; Note that we do not 'recur' further here. Rather we
               ;; return control to the caller. Here we lack the
               ;; context to know whether to proceed further or not.
-              (St (Concat fd (Concat (Text (LINE-s d)) (Line i))) i z))
+              (St (Concat fd (Concat (Text (LINE-s d)) (Line i)))
+                  (string-length i) z))
              ((UNION? d)
               ;; Note that here we call 'be' rather than invoking
               ;; 'recur', as 'recur' doesn't "return", it just
@@ -168,8 +189,13 @@
    ((NIL? doc) '(nil))
    ((CONCAT? doc) `(concat ,(DOC-to-sexp (CONCAT-ldoc doc))
                            ,(DOC-to-sexp (CONCAT-rdoc doc))))
-   ((NEST? doc) `(nest ,(NEST-n doc)
-                       ,(DOC-to-sexp (NEST-doc doc))))
+   ((NEST? doc) (let ((lv (NEST-lv doc))
+                      (doc (DOC-to-sexp (NEST-doc doc))))
+                  (cond
+                   ((LvInc? lv) `(nest ,(LvInc-n lv) ,doc))
+                   ((LvStr? lv) `(nest ,(LvStr-s lv) ,doc))
+                   ((Lv0? lv) `(nest0 ,doc))
+                   (else (error "unexpected" lv)))))
    ((TEXT? doc) `(text ,(TEXT-s doc)))
    ((LINE? doc) `(line ,(LINE-s doc)))
    ((UNION? doc) `(concat ,(DOC-to-sexp (UNION-ldoc doc))
@@ -180,7 +206,7 @@
   (cond
    ((Nil? doc) '(nil))
    ((Text? doc) `(text ,(Text-s doc)))
-   ((Line? doc) `(line ,(Line-n doc)))
+   ((Line? doc) `(line ,(Line-s doc)))
    ((Concat? doc) `(concat ,(Doc-to-sexp (Concat-ldoc doc))
                            ,(Doc-to-sexp (Concat-rdoc doc))))
    (else (error "Doc-to-sexp: unexpected" doc))))
