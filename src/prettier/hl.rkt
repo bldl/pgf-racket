@@ -12,6 +12,9 @@
   (concat x (line) y))
 
 (define* (folddoc f lst)
+  ;; We could write (foldl f (nil) lst), but we want to avoid the
+  ;; extra (nil) in the output, which could cause issues depending on
+  ;; the passed 'f', say in adding separators between documents.
   (if (null? lst)
       (nil)
       (let ((x (car lst))
@@ -35,20 +38,6 @@
 
 (define* (fillwords s)
   (folddoc <+/> (map text (words s))))
-
-(define* (cpp-directive s)
-  (nest 2
-        (folddoc
-         (lambda (x y)
-           (concat x (private-union (text " ") (line "\\")) y))
-         (map text (words s)))))
-
-(define* (cpp-if-else c-s t e)
-  (concat (cpp-directive (string-append "#if " c-s)) (line)
-          t (line)
-          (text "#else") (line)
-          e (line)
-          (text "#endif")))
 
 (define* (fill lst)
   (if (null? lst)
