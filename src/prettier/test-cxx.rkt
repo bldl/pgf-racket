@@ -213,27 +213,27 @@
         ...
         (else (error "unsupported" kind)))))))
 
-(define-syntax random-construct
-  (syntax-rules (scores generators)
-    ((_ (scores (sname score-expr) ...)
-        (generators (gname gen-expr) ...))
-     (let* ((sc (list (cons (quote sname) score-expr) ...))
+(define-syntax random-case/scored
+  (syntax-rules ()
+    ((_ (name score-expr gen-expr) ...)
+     (let* ((c-lst (list (list (quote name)
+                               score-expr
+                               (delay gen-expr)) ...))
             (sum 0)
-            (sc-map
-             (for/hasheq ((i sc))
-                         (set! sum (+ sum (cdr i)))
-                         (values (car i) sum)))
+            (c-map
+             (for/hasheq ((i c-lst))
+                         (let ((sc (second i)))
+                           (when (> sc 0)
+                             (set! sum (+ sum sc))))
+                         (values (first i)
+                                 (cons sum (third i)))))
             (k (random sum)))
        (cond
-        ((< k (hash-ref sc-map (quote gname)))
-         gen-expr)
+        ((let ((elem (hash-ref c-map (quote name))))
+           (and (< k (car elem))
+                (force (cdr elem)))))
         ...
         (else (error "mismatch" k)))))))
-
-(for ((i (in-range 10)))
-     (writeln
-      (random-construct (scores (x 1) (a 3) (b 5) (c 1))
-                        (generators (x 'x) (a 'a) (b 'b) (c 'c)))))
 
 (define (random-vardecl ctx)
   (ind-cat (and (eq? ctx 'tl) (concat (text "static") (sp)))
