@@ -159,7 +159,8 @@
                             #:max (max-len 15))
   (text
    (random-string/readable (random/from-range min-len max-len)
-                  (cons underscore upper-lst))))
+                  (cons underscore
+                        (cons underscore upper-lst)))))
 
 (define (random-typename #:min (min 5)
                          #:max (max 15)
@@ -180,28 +181,27 @@
                                       (concat (text ",") (line)))))
             (bracket "<" args ">"))))))
 
-(define (random-cpp-expr)
+(define (random-cpp-expr depth)
   (in-cpp
-   (random-case
-    (int var defined not and)
-    (generate
-     (int with (text (number->string (random 1000))))
-     (var with (random-cpp-varname))
-     (defined with (bracket/br "defined(" (random-cpp-varname) ")"))
-     (not with (bracket/br "!(" (random-cpp-expr) ")"))
-     (and with (bracket/br "("
-                           (times/sep/cat
-                            (random/from-range 2 4)
-                            (random-cpp-expr)
-                            (concat (sp) (text "&&") (sp)))
-                           ")"))
-     ))))
+   (random-case/scored
+     (int 5 (text (number->string (random 1000))))
+     (var 4 (random-cpp-varname))
+     (defined 2 (bracket/br "defined(" (random-cpp-varname) ")"))
+     (not 2 (bracket/br "!(" (random-cpp-expr (+ depth 1)) ")"))
+     (and (- 7 depth)
+          (bracket/br "("
+                      (times/sep/cat
+                       (random/from-range 2 4)
+                       (random-cpp-expr (+ depth 1))
+                       (concat (sp) (text "&&") (sp)))
+                      ")"))
+     )))
 
 (define (random-cpp-var-decl)
   (in-cpp
    (ind-cat (text "#define") (sp)
             (random-cpp-varname) (sp)
-            (random-cpp-expr))))
+            (random-cpp-expr 1))))
 
 (define-syntax random-case
   (syntax-rules (generate with)
@@ -262,7 +262,7 @@
     (var with (random-vardecl ctx))
     (typedef with (random-typedef))
     (cpp-var with (random-cpp-var-decl))
-    (cpp-if with (cpp-if (random-cpp-expr)
+    (cpp-if with (cpp-if (random-cpp-expr depth)
                          (random-decl ctx depth)
                          (and (one-in-three?)
                               (random-decl ctx depth)))))))
@@ -288,6 +288,7 @@
          )
     (list
      ;;(cons "random compilation unit" (random-compilation-unit))
+     (cons "variable #define" (random-cpp-var-decl))
      (cons "empty struct" (c-struct (text "EmptyStruct") (list)))
      (cons "struct with one member"
            (c-struct (text "SmallStruct") (list (random-vardecl 'member))))
