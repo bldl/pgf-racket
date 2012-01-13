@@ -213,6 +213,28 @@
         ...
         (else (error "unsupported" kind)))))))
 
+(define-syntax random-construct
+  (syntax-rules (scores generators)
+    ((_ (scores (sname score-expr) ...)
+        (generators (gname gen-expr) ...))
+     (let* ((sc (list (cons (quote sname) score-expr) ...))
+            (sum 0)
+            (sc-map
+             (for/hasheq ((i sc))
+                         (set! sum (+ sum (cdr i)))
+                         (values (car i) sum)))
+            (k (random sum)))
+       (cond
+        ((< k (hash-ref sc-map (quote gname)))
+         gen-expr)
+        ...
+        (else (error "mismatch" k)))))))
+
+(for ((i (in-range 10)))
+     (writeln
+      (random-construct (scores (x 1) (a 3) (b 5) (c 1))
+                        (generators (x 'x) (a 'a) (b 'b) (c 'c)))))
+
 (define (random-vardecl ctx)
   (ind-cat (and (eq? ctx 'tl) (concat (text "static") (sp)))
            (random-typename) (sp) (random-varname) (semi)))
@@ -222,13 +244,13 @@
            (random-typename) (sp)
            (random-typename #:args-ok #f) (text ";")))
 
-(define (random-struct)
+(define (random-struct depth)
   (c-struct (random-typename)
             (let ((n (random/from-range 7 12)))
-              (times/list n (random-decl 'member)))))
+              (times/list n (random-decl 'member (+ depth 1))))))
 
 ;; xxx 'struct' and function to be supported
-(define (random-decl ctx)
+(define (random-decl ctx depth)
   (random-case
    (struct struct struct struct
            var var var
@@ -236,18 +258,20 @@
            cpp-var cpp-var
            cpp-if)
    (generate
-    (struct with (random-struct))
+    (struct with (random-struct depth))
     (var with (random-vardecl ctx))
     (typedef with (random-typedef))
     (cpp-var with (random-cpp-var-decl))
-    (cpp-if with (cpp-if (random-cpp-expr) (random-decl ctx)
-                         (and (one-in-three?) (random-decl ctx)))))))
+    (cpp-if with (cpp-if (random-cpp-expr)
+                         (random-decl ctx depth)
+                         (and (one-in-three?)
+                              (random-decl ctx depth)))))))
 
 (define (random-compilation-unit)
   (let ((n (random/from-range 7 12)))
     (apply concat
            (add-between
-            (times/list n (random-decl 'tl))
+            (times/list n (random-decl 'tl 1))
             (concat (line) (line))))))
 
 ;;; 
