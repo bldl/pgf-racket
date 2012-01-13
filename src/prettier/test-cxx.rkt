@@ -55,6 +55,28 @@
 ;;; C++ test data generator
 ;;; 
 
+(define-syntax-rule
+  (times/list n expr)
+  (for/list ((i (in-range n))) expr))
+
+(define-syntax-rule
+  (times/sep/cat count elem-expr sep-expr)
+  (let ((lst '()))
+    (let recur ((n count)
+                (last #f))
+      (when (> n 0)
+        (when last
+          (let ((sep sep-expr))
+            (when sep
+              (set! lst (cons sep lst)))))
+        (let ((elem elem-expr))
+          (when elem
+            (set! lst (cons elem lst)))
+          (recur (- n 1) elem))))
+    (if (null? lst)
+        (nil)
+        (apply concat (reverse lst)))))
+
 (define ascii-lst
   (for/list ((i (in-range 128)))
             (integer->char i)))
@@ -112,8 +134,44 @@
   (ind-cat (and global? (concat (text "static") (sp)))
            (random-typename) (sp) (random-varname) (semi)))
 
+(define (random-typedef)
+  (ind-cat (text "typedef") (sp)
+           (random-typename) (sp)
+           (random-typename #:args-ok #f) (text ";")))
+
+(define-syntax random-case
+  (syntax-rules (generate with)
+    ((_ (names ...) (generate (name with expr) ...))
+     (let ((kind (random/from-list '(names ...))))
+       (cond
+        ((eq? kind (quote name))
+         expr)
+        ...
+        (else (error "unsupported" kind)))))))
+
 (define (random-decl)
-  (random-vardecl #:global? #t))
+  (random-case
+   (var typedef)
+   (generate
+    (var with (random-vardecl #:global? #t))
+    (typedef with (random-typedef)))))
+
+#;
+(define (random-decl)
+  (let ((kind (random/from-list '(var typedef))))
+    (cond
+     ((eq? kind 'var)
+      (random-vardecl #:global? #t))
+     ((eq? kind 'typedef)
+      (random-typedef))
+     )))
+
+(define (random-compilation-unit)
+  (let ((n (random/from-range 7 12)))
+    (apply concat
+           (add-between
+            (times/list n (random-decl))
+            (concat (line) (line))))))
 
 ;;; 
 ;;; Test data
@@ -128,6 +186,7 @@
          (cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
+     (cons "random compilation unit" (random-compilation-unit))
      (cons "random declaration" (random-decl))
      (cons "nothing" (nil))
      (cons "break statement" break-1)
