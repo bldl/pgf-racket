@@ -32,6 +32,17 @@
 (define (parens doc)
   (concat (text "(") (br) doc (br) (text ")")))
 
+(define (semi) (text ";"))
+
+(define (ind-cat . args)
+  (ind (apply cat args)))
+
+(define (bracket/br l x r)
+  (group (concat (text l)
+                 (nest 2 (concat (br) x))
+                 (br)
+                 (text r))))
+
 (define (cpp-if c t (e #f))
    (cat
     (in-cpp (concat (text "#if") (sp) c)) (nl)
@@ -47,6 +58,17 @@
             doc)) (line)
    (text "}")))
 
+(define (c-struct name members)
+  (concat
+   (ind-cat
+    (text "struct") (sp) (text "{")
+    (and (not (null? members))
+         (concat
+          (line)
+          (apply concat (add-between members (concat (line) (line))))
+          )))
+   (line) (text "};")))
+
 (define (c-if c t (e #f))
   (cat
    (ind (concat (text "if") (sp) (parens c))) (sp)
@@ -57,6 +79,9 @@
 ;;; 
 ;;; C++ test data generator
 ;;; 
+
+(define (one-in-three?)
+  (= (random 3) 0))
 
 (define-syntax-rule
   (times/list n expr)
@@ -136,9 +161,6 @@
    (random-string/readable (random/from-range min-len max-len)
                   (cons underscore upper-lst))))
 
-(define (one-in-three?)
-  (= (random 3) 0))
-
 (define (random-typename #:min (min 5)
                          #:max (max 15)
                          #:args-ok (args-ok #t))
@@ -158,27 +180,15 @@
                                       (concat (text ",") (line)))))
             (bracket "<" args ">"))))))
 
-(define (semi) (text ";"))
-
-(define (ind-cat . args)
-  (ind (apply cat args)))
-
-(define (bracket/br l x r)
-  (group (concat (text l)
-                 (nest 2 (concat (br) x))
-                 (br)
-                 (text r))))
-
 (define (random-cpp-expr)
   (in-cpp
    (random-case
-    (int var defined not parens and)
+    (int var defined not and)
     (generate
      (int with (text (number->string (random 1000))))
      (var with (random-cpp-varname))
      (defined with (bracket/br "defined(" (random-cpp-varname) ")"))
      (not with (bracket/br "!(" (random-cpp-expr) ")"))
-     (parens with (bracket/br "(" (random-cpp-expr) ")"))
      (and with (bracket/br "("
                            (times/sep/cat
                             (random/from-range 2 4)
@@ -212,14 +222,21 @@
            (random-typename) (sp)
            (random-typename #:args-ok #f) (text ";")))
 
+(define (random-struct)
+  (c-struct (random-typename)
+            (let ((n (random/from-range 7 12)))
+              (times/list n (random-decl 'member)))))
+
 ;; xxx 'struct' and function to be supported
 (define (random-decl ctx)
   (random-case
-   (var var var var
-        typedef typedef typedef
-        cpp-var cpp-var
-        cpp-if)
+   (struct struct struct struct
+           var var var
+           typedef typedef
+           cpp-var cpp-var
+           cpp-if)
    (generate
+    (struct with (random-struct))
     (var with (random-vardecl ctx))
     (typedef with (random-typedef))
     (cpp-var with (random-cpp-var-decl))
@@ -246,7 +263,10 @@
          ;;(cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
-     (cons "random compilation unit" (random-compilation-unit))
+     ;;(cons "random compilation unit" (random-compilation-unit))
+     (cons "empty struct" (c-struct (text "EmptyStruct") (list)))
+     (cons "struct with one member"
+           (c-struct (text "SmallStruct") (list (random-vardecl 'member))))
      ;; (cons "nothing" (nil))
      ;; (cons "break statement" break-1)
      ;; (cons "if statement" if-1)
