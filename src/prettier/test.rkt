@@ -30,6 +30,8 @@
            (stack (list (text "foo") (text "bar") (text "baz")))
            (fillwords lorem-ipsum-sentence)
            (fillwords lorem-ipsum-paragraph)
+           (nest 4 (concat (text "foo") (line) (text "bar") (nest -2 (concat (line) (text "baz"))) (line) (text "foobar")))
+           (nest/str "...." (concat (text "foo") (line) (text "bar") (nest -2 (concat (line) (text "baz"))) (line) (text "foobar")))
            )))
       (printfln "~a (w=~a)" d w)
       (newline)
