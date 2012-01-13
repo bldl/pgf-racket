@@ -8,11 +8,17 @@
 ;;; C++ specific pretty printing
 ;;; 
 
+(define current-line (make-parameter (line)))
+
 (define (sp)
-  (private-union (text " ") (line)))
+  (private-union (text " ") (current-line)))
 
 (define (br)
-  (private-union (nil) (line)))
+  (private-union (nil) (current-line)))
+
+(define-syntax-rule
+  (in-cpp body ...)
+  (parameterize ((current-line (line " \\"))) body ...))
 
 (define (ind doc)
   (nest 2 doc))
@@ -23,6 +29,7 @@
 (define (parens doc)
   (concat (text "(") (br) doc (br) (text ")")))
 
+#;
 (define (cpp-directive s)
   (nest 2
         (folddoc
@@ -32,6 +39,7 @@
            (concat x (private-union (text " ") (line " \\")) y))
          (map text (words s)))))
 
+#;
 (define (cpp-if-else c-s t e)
   (concat (cpp-directive (string-append "#if " c-s)) (line)
           t (line)
@@ -48,8 +56,10 @@
 
 (define (c-if c t (e #f))
   (cat
-   (concat (ind (concat (text "if") (sp) (parens c))) (sp))
-   (c-block t)))
+   (ind (concat (text "if") (sp) (parens c))) (sp)
+   (c-block t)
+   (and e
+        (concat (ind (concat (text "else"))) (sp) (c-block e)))))
 
 ;;; 
 ;;; C++ test data generator
@@ -85,14 +95,29 @@
 (define alpha-lst (append lower-lst upper-lst))
 (define underscore #\_)
 
+(define (vowel? c)
+  (memv c (list #\a #\e #\i #\o #\u #\y
+                #\A #\E #\I #\O #\U #\Y)))
+
 (define (random/from-list lst)
   (list-ref lst (random (length lst))))
 
 (define (random/from-range a b)
   (+ a (random (- b a))))
 
-(define (random/string n lst)
+(define (random-string n lst)
   (apply string (for/list ((i (in-range n))) (random/from-list lst))))
+
+(define (random-string/readable n alphabet)
+  (let next ((n n) (lst '()) (was? #t))
+    (if (> n 0)
+        (let* ((c (random/from-list alphabet))
+               (v (vowel? c))
+               (ok (or v was?)))
+          (if ok
+              (next (- n 1) (cons c lst) v)
+              (next n lst was?)))
+        (apply string (reverse lst)))))
 
 (define (random-varname #:min (min 5)
                         #:max (max 10)
@@ -103,14 +128,20 @@
          (max-len (- max pfx-len)))
     (text
      (string-append pfx
-                    (random/string (random/from-range min-len max-len)
+                    (random-string/readable (random/from-range min-len max-len)
                                    (cons underscore lower-lst))))))
 
 (define (random-funname #:min (min-len 10)
                         #:max (max-len 15))
   (text
-   (random/string (random/from-range min-len max-len)
+   (random-string/readable (random/from-range min-len max-len)
                   (cons underscore lower-lst))))
+
+(define (random-cpp-varname #:min (min-len 10)
+                            #:max (max-len 15))
+  (text
+   (random-string/readable (random/from-range min-len max-len)
+                  (cons underscore upper-lst))))
 
 (define (random-typename #:min (min 5)
                          #:max (max 15)
@@ -119,11 +150,11 @@
          (pfx-len (string-length pfx))
          (min-len (- min pfx-len))
          (max-len (- max pfx-len))
-         (lst (cons underscore alpha-lst)))
+         (lst (cons underscore lower-lst)))
     (cat 
      (text
       (string-append pfx
-                     (random/string
+                     (random-string/readable
                       (random/from-range min-len max-len) lst)))
      (and args-ok (= (random 3) 0)
           (let* ((n (random/from-range 1 4))
@@ -135,6 +166,36 @@
 
 (define (ind-cat . args)
   (ind (apply cat args)))
+
+(define (bracket/br l x r)
+  (group (concat (text l)
+                 (nest 2 (concat (br) x))
+                 (br)
+                 (text r))))
+
+(define (random-cpp-expr)
+  (in-cpp
+   (random-case
+    (int var defined not parens and)
+    (generate
+     (int with (text (number->string (random 1000))))
+     (var with (random-cpp-varname))
+     (defined with (bracket/br "defined(" (random-cpp-varname) ")"))
+     (not with (bracket/br "!(" (random-cpp-expr) ")"))
+     (parens with (bracket/br "(" (random-cpp-expr) ")"))
+     (and with (bracket/br "("
+                           (times/sep/cat
+                            (random/from-range 2 4)
+                            (random-cpp-expr)
+                            (concat (sp) (text "&&") (sp)))
+                           ")"))
+     ))))
+
+(define (random-cpp-var-decl)
+  (in-cpp
+   (ind-cat (text "#define") (sp)
+            (random-cpp-varname) (sp)
+            (random-cpp-expr))))
 
 (define-syntax random-case
   (syntax-rules (generate with)
@@ -158,10 +219,11 @@
 ;; 'struct' and function to be supported
 (define (random-decl ctx)
   (random-case
-   (var typedef)
+   (var typedef cpp-var)
    (generate
     (var with (random-vardecl ctx))
-    (typedef with (random-typedef)))))
+    (typedef with (random-typedef))
+    (cpp-var with (random-cpp-var-decl)))))
 
 (define (random-compilation-unit)
   (let ((n (random/from-range 7 12)))
@@ -180,7 +242,7 @@
          (break-1 (text "break;"))
          (continue-1 (text "continue;"))
          (if-1 (c-if true-1 break-1))
-         (cpp-1 (cpp-if-else "1" break-1 continue-1))
+         ;;(cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
      (cons "random compilation unit" (random-compilation-unit))
