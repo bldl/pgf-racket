@@ -4,9 +4,9 @@
 
 ;;; The pretty printer
 
-(data Lv ((LvInc n) ;; number -> Lv
+(data Lv ((LvInc n) ;; integer -> Lv
           (LvStr s) ;; string -> Lv
-          (Lv0))) ;; -> Lv
+          (LvAbs n))) ;; integer -> Lv
 
 (data DOC ((NIL) ;; -> DOC
            (CONCAT ldoc rdoc) ;; DOC, DOC -> DOC
@@ -29,8 +29,10 @@
 (define* (nest/str s doc)
   (NEST (LvStr s) doc))
 
-(define* (nest/0 doc)
-  (NEST (Lv0) doc))
+(define* (nest/abs n doc)
+  (NEST (LvAbs n) doc))
+
+(define* nest/0 (fix nest/abs 0))
 
 (define* (line (hyphen ""))
   (LINE hyphen))
@@ -68,7 +70,7 @@
                         (if (> nlen 0)
                             (substring s 0 nlen) "")))))
    ((LvStr? lv) (string-append s (LvStr-s lv)))
-   ((Lv0? lv) "")
+   ((LvAbs? lv) (make-string (LvAbs-n lv) #\space))
    (else (error "margin: unexpected" lv))))
 
 (define* (layout d)
@@ -200,7 +202,7 @@
                   (cond
                    ((LvInc? lv) `(nest ,(LvInc-n lv) ,doc))
                    ((LvStr? lv) `(nest ,(LvStr-s lv) ,doc))
-                   ((Lv0? lv) `(nest0 ,doc))
+                   ((LvAbs? lv) `(nest/abs ,(LvAbs-n lv) ,doc))
                    (else (error "unexpected" lv)))))
    ((TEXT? doc) `(text ,(TEXT-s doc)))
    ((LINE? doc) `(line ,(LINE-s doc)))
