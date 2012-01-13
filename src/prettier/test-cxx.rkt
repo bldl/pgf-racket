@@ -246,26 +246,20 @@
 
 (define (random-struct depth)
   (c-struct (random-typename)
-            (let ((n (random/from-range 7 12)))
+            (let ((n (random/from-range 0 6)))
               (times/list n (random-decl 'member (+ depth 1))))))
 
-;; xxx 'struct' and function to be supported
+;; xxx function to be supported
 (define (random-decl ctx depth)
-  (random-case
-   (struct struct struct struct
-           var var var
-           typedef typedef
-           cpp-var cpp-var
-           cpp-if)
-   (generate
-    (struct with (random-struct depth))
-    (var with (random-vardecl ctx))
-    (typedef with (random-typedef))
-    (cpp-var with (random-cpp-var-decl))
-    (cpp-if with (cpp-if (random-cpp-expr depth)
-                         (random-decl ctx depth)
-                         (and (one-in-three?)
-                              (random-decl ctx depth)))))))
+  (random-case/scored
+    (struct (- 5 depth) (random-struct depth))
+    (var 4 (random-vardecl ctx))
+    (typedef 3 (random-typedef))
+    (cpp-var (if (eq? ctx 'tl) 2 0) (random-cpp-var-decl))
+    (cpp-if (- 1 depth) (cpp-if (random-cpp-expr depth)
+                                (random-decl ctx depth)
+                                (and (one-in-three?)
+                                     (random-decl ctx depth))))))
 
 (define (random-compilation-unit)
   (let ((n (random/from-range 7 12)))
@@ -288,6 +282,7 @@
          )
     (list
      ;;(cons "random compilation unit" (random-compilation-unit))
+     (cons "top-level declaration" (random-decl 'tl 1))
      (cons "variable #define" (random-cpp-var-decl))
      (cons "empty struct" (c-struct (text "EmptyStruct") (list)))
      (cons "struct with one member"
