@@ -10,6 +10,9 @@
 
 (define current-line (make-parameter (line)))
 
+(define (nl)
+  (current-line))
+
 (define (sp)
   (private-union (text " ") (current-line)))
 
@@ -29,23 +32,13 @@
 (define (parens doc)
   (concat (text "(") (br) doc (br) (text ")")))
 
-#;
-(define (cpp-directive s)
-  (nest 2
-        (folddoc
-         (lambda (x y)
-           ;; This actually breaks the rule we have for UNION, but
-           ;; line breaks are special.
-           (concat x (private-union (text " ") (line " \\")) y))
-         (map text (words s)))))
-
-#;
-(define (cpp-if-else c-s t e)
-  (concat (cpp-directive (string-append "#if " c-s)) (line)
-          t (line)
-          (text "#else") (line)
-          e (line)
-          (text "#endif")))
+(define (cpp-if c t (e #f))
+   (cat
+    (in-cpp (concat (text "#if") (sp) c)) (nl)
+    t (nl)
+    (and e (concat (text "#else") (nl)
+                   e (nl)))
+    (text "#endif")))
 
 (define (c-block doc)
   (concat
@@ -143,6 +136,9 @@
    (random-string/readable (random/from-range min-len max-len)
                   (cons underscore upper-lst))))
 
+(define (one-in-three?)
+  (= (random 3) 0))
+
 (define (random-typename #:min (min 5)
                          #:max (max 15)
                          #:args-ok (args-ok #t))
@@ -156,7 +152,7 @@
       (string-append pfx
                      (random-string/readable
                       (random/from-range min-len max-len) lst)))
-     (and args-ok (= (random 3) 0)
+     (and args-ok (one-in-three?)
           (let* ((n (random/from-range 1 4))
                  (args (times/sep/cat n (random-typename)
                                       (concat (text ",") (line)))))
@@ -216,14 +212,19 @@
            (random-typename) (sp)
            (random-typename #:args-ok #f) (text ";")))
 
-;; 'struct' and function to be supported
+;; xxx 'struct' and function to be supported
 (define (random-decl ctx)
   (random-case
-   (var typedef cpp-var)
+   (var var var var
+        typedef typedef typedef
+        cpp-var cpp-var
+        cpp-if)
    (generate
     (var with (random-vardecl ctx))
     (typedef with (random-typedef))
-    (cpp-var with (random-cpp-var-decl)))))
+    (cpp-var with (random-cpp-var-decl))
+    (cpp-if with (cpp-if (random-cpp-expr) (random-decl ctx)
+                         (and (one-in-three?) (random-decl ctx)))))))
 
 (define (random-compilation-unit)
   (let ((n (random/from-range 7 12)))
