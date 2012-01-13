@@ -120,24 +120,21 @@
          (min-len (- min pfx-len))
          (max-len (- max pfx-len))
          (lst (cons underscore alpha-lst)))
-    (text
-     (string-append pfx
-                    (random/string
-                     (random/from-range min-len max-len) lst)))))
+    (cat 
+     (text
+      (string-append pfx
+                     (random/string
+                      (random/from-range min-len max-len) lst)))
+     (and args-ok (= (random 3) 0)
+          (let* ((n (random/from-range 1 4))
+                 (args (times/sep/cat n (random-typename)
+                                      (concat (text ",") (line)))))
+            (bracket "<" args ">"))))))
 
 (define (semi) (text ";"))
 
 (define (ind-cat . args)
   (ind (apply cat args)))
-
-(define (random-vardecl #:global? (global? #f))
-  (ind-cat (and global? (concat (text "static") (sp)))
-           (random-typename) (sp) (random-varname) (semi)))
-
-(define (random-typedef)
-  (ind-cat (text "typedef") (sp)
-           (random-typename) (sp)
-           (random-typename #:args-ok #f) (text ";")))
 
 (define-syntax random-case
   (syntax-rules (generate with)
@@ -149,28 +146,28 @@
         ...
         (else (error "unsupported" kind)))))))
 
-(define (random-decl)
+(define (random-vardecl ctx)
+  (ind-cat (and (eq? ctx 'tl) (concat (text "static") (sp)))
+           (random-typename) (sp) (random-varname) (semi)))
+
+(define (random-typedef)
+  (ind-cat (text "typedef") (sp)
+           (random-typename) (sp)
+           (random-typename #:args-ok #f) (text ";")))
+
+;; 'struct' and function to be supported
+(define (random-decl ctx)
   (random-case
    (var typedef)
    (generate
-    (var with (random-vardecl #:global? #t))
+    (var with (random-vardecl ctx))
     (typedef with (random-typedef)))))
-
-#;
-(define (random-decl)
-  (let ((kind (random/from-list '(var typedef))))
-    (cond
-     ((eq? kind 'var)
-      (random-vardecl #:global? #t))
-     ((eq? kind 'typedef)
-      (random-typedef))
-     )))
 
 (define (random-compilation-unit)
   (let ((n (random/from-range 7 12)))
     (apply concat
            (add-between
-            (times/list n (random-decl))
+            (times/list n (random-decl 'tl))
             (concat (line) (line))))))
 
 ;;; 
@@ -187,16 +184,15 @@
          )
     (list
      (cons "random compilation unit" (random-compilation-unit))
-     (cons "random declaration" (random-decl))
-     (cons "nothing" (nil))
-     (cons "break statement" break-1)
-     (cons "if statement" if-1)
-     (cons "nested if statement with complex condition" (c-if (fillwords "1 && 2 && 1==2 && defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__") if-1))
-     (cons "#if-else" (cpp-if-else "defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__" (text "return 1;") (text "return 2;")))
-     (cons "nested CPP" (c-if true-1 cpp-1))
+     ;; (cons "nothing" (nil))
+     ;; (cons "break statement" break-1)
+     ;; (cons "if statement" if-1)
+     ;; (cons "nested if statement with complex condition" (c-if (fillwords "1 && 2 && 1==2 && defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__") if-1))
+     ;; (cons "#if-else" (cpp-if-else "defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__" (text "return 1;") (text "return 2;")))
+     ;; (cons "nested CPP" (c-if true-1 cpp-1))
      )))
 
-(define w-lst '(5 10 15 25 35 45 55))
+(define w-lst '(5 10 15 25 35 45 55 65 75))
 
 ;;; 
 ;;; Test runner
@@ -205,7 +201,7 @@
 (define (test-doc w t d)
   (printfln "~a (w=~a)" t w)
   (newline)
-  (writeln (DOC-to-sexp d)) (newline)
+  ;;(writeln (DOC-to-sexp d)) (newline)
   (displayln (pretty w d))
   (displayln "----------"))
 
