@@ -6,7 +6,8 @@
 
 (data Lv ((LvInc n) ;; integer -> Lv
           (LvStr s) ;; string -> Lv
-          (LvAbs n))) ;; integer -> Lv
+          (LvAbs n) ;; integer -> Lv
+          (LvRel n))) ;; integer -> Lv
 
 (data DOC ((NIL) ;; -> DOC
            (CONCAT ldoc rdoc) ;; DOC, DOC -> DOC
@@ -34,6 +35,11 @@
 
 (define* nest/0 (fix nest/abs 0))
 
+(define* (nest/rel n doc)
+  (NEST (LvRel n) doc))
+
+(define* align (fix nest/rel 0))
+
 (define* (line (hyphen ""))
   (LINE hyphen))
 
@@ -58,9 +64,10 @@
    ((UNION? d) (flatten (UNION-ldoc d)))
    (else (error "flatten: unexpected" d))))
 
+;; k:: current column (integer)
 ;; s:: previous indentation string (string)
 ;; lv:: level specification (Lv)
-(define (margin s lv)
+(define (margin k s lv)
   (cond
    ((LvInc? lv) (let ((n (LvInc-n lv)))
                   (if (>= n 0)
@@ -70,7 +77,10 @@
                         (if (> nlen 0)
                             (substring s 0 nlen) "")))))
    ((LvStr? lv) (string-append s (LvStr-s lv)))
-   ((LvAbs? lv) (make-string (LvAbs-n lv) #\space))
+   ((LvAbs? lv) (let ((n (LvAbs-n lv)))
+                  (if (> n 0)
+                      (make-string n #\space) "")))
+   ((LvRel? lv) (margin k s (LvAbs (+ k (LvRel-n lv)))))
    (else (error "margin: unexpected" lv))))
 
 (define* (layout d)
@@ -137,7 +147,8 @@
                                     (cons (Be i (CONCAT-rdoc d)) z)))))
              ((NEST? d)
               (recur (St fd k
-                         (cons (Be (margin i (NEST-lv d)) (NEST-doc d)) z))))
+                         (cons (Be (margin k i (NEST-lv d))
+                                   (NEST-doc d)) z))))
              ((TEXT? d)
               (let ((s (TEXT-s d)))
                 (recur (St (Concat fd (Text s))
