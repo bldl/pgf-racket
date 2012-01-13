@@ -6,22 +6,6 @@
 
 ;;; C++ specific utilities
 
-(define (cpp-directive s)
-  (nest 2
-        (folddoc
-         (lambda (x y)
-           ;; This actually breaks the rule we have for UNION, but
-           ;; line breaks are are special.
-           (concat x (private-union (text " ") (line " \\")) y))
-         (map text (words s)))))
-
-(define (cpp-if-else c-s t e)
-  (concat (cpp-directive (string-append "#if " c-s)) (line)
-          t (line)
-          (text "#else") (line)
-          e (line)
-          (text "#endif")))
-
 (define (sp)
   (private-union (text " ") (line)))
 
@@ -36,6 +20,22 @@
 
 (define (parens doc)
   (concat (text "(") (br) doc (br) (text ")")))
+
+(define (cpp-directive s)
+  (nest 2
+        (folddoc
+         (lambda (x y)
+           ;; This actually breaks the rule we have for UNION, but
+           ;; line breaks are special.
+           (concat x (private-union (text " ") (line " \\")) y))
+         (map text (words s)))))
+
+(define (cpp-if-else c-s t e)
+  (concat (cpp-directive (string-append "#if " c-s)) (line)
+          t (line)
+          (text "#else") (line)
+          e (line)
+          (text "#endif")))
 
 (define (c-block doc)
   (concat
