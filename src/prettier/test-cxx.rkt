@@ -4,7 +4,9 @@
 (require "prim.rkt")
 (require "util.rkt")
 
-;;; C++ specific utilities
+;;; 
+;;; C++ specific pretty printing
+;;; 
 
 (define (sp)
   (private-union (text " ") (line)))
@@ -49,7 +51,73 @@
    (concat (ind (concat (text "if") (sp) (parens c))) (sp))
    (c-block t)))
 
+;;; 
+;;; C++ test data generator
+;;; 
+
+(define ascii-lst
+  (for/list ((i (in-range 128)))
+            (integer->char i)))
+(define lower-lst (filter char-lower-case? ascii-lst))
+(define upper-lst (filter char-upper-case? ascii-lst))
+(define alpha-lst (append lower-lst upper-lst))
+(define underscore #\_)
+
+(define (random/from-list lst)
+  (list-ref lst (random (length lst))))
+
+(define (random/from-range a b)
+  (+ a (random (- b a))))
+
+(define (random/string n lst)
+  (apply string (for/list ((i (in-range n))) (random/from-list lst))))
+
+(define (random-varname #:min (min 5)
+                        #:max (max 10)
+                        #:member? (member? #f))
+  (let* ((pfx (if member? "m_" ""))
+         (pfx-len (string-length pfx))
+         (min-len (- min pfx-len))
+         (max-len (- max pfx-len)))
+    (text
+     (string-append pfx
+                    (random/string (random/from-range min-len max-len)
+                                   (cons underscore lower-lst))))))
+
+(define (random-funname #:min (min-len 10)
+                        #:max (max-len 15))
+  (text
+   (random/string (random/from-range min-len max-len)
+                  (cons underscore lower-lst))))
+
+(define (random-typename #:min (min 5)
+                         #:max (max 15)
+                         #:args-ok (args-ok #t))
+  (let* ((pfx "T")
+         (pfx-len (string-length pfx))
+         (min-len (- min pfx-len))
+         (max-len (- max pfx-len))
+         (lst (cons underscore alpha-lst)))
+    (text
+     (string-append pfx
+                    (random/string
+                     (random/from-range min-len max-len) lst)))))
+
+(define (semi) (text ";"))
+
+(define (ind-cat . args)
+  (ind (apply cat args)))
+
+(define (random-vardecl #:global? (global? #f))
+  (ind-cat (and global? (concat (text "static") (sp)))
+           (random-typename) (sp) (random-varname) (semi)))
+
+(define (random-decl)
+  (random-vardecl #:global? #t))
+
+;;; 
 ;;; Test data
+;;; 
 
 (define d-lst
   (let* (
@@ -60,6 +128,7 @@
          (cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
+     (cons "random declaration" (random-decl))
      (cons "nothing" (nil))
      (cons "break statement" break-1)
      (cons "if statement" if-1)
@@ -70,7 +139,9 @@
 
 (define w-lst '(5 10 15 25 35 45 55))
 
+;;; 
 ;;; Test runner
+;;; 
 
 (define (test-doc w t d)
   (printfln "~a (w=~a)" t w)
