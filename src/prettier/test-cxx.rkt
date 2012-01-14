@@ -192,20 +192,25 @@
                                       (concat (text ",") (line)))))
             (bracket "<" args ">"))))))
 
-(define (random-cpp-expr depth)
+(define (cat/str . args)
+  (apply cat (map (lambda (x) (if (string? x) (text x) x)) args)))
+
+(define (random-cpp-expr (depth 1))
+  (define (f/br s1 doc s2)
+    (concat (text s1) (br) doc (br) (text s2)))
   (in-cpp
    (random-case/scored
      (int 5 (text (number->string (random 1000))))
      (var 4 (random-cpp-varname))
-     (defined 2 (bracket/br "defined(" (random-cpp-varname) ")"))
-     (not 2 (bracket/br "!(" (random-cpp-expr (+ depth 1)) ")"))
+     (defined 2 (f/br "defined(" (random-cpp-varname) ")"))
+     (not 2 (cat/str "!(" (random-cpp-expr (+ depth 1)) ")"))
      (and (- 7 depth)
-          (bracket/br "("
-                      (times/sep/cat
-                       (random/from-range 2 4)
-                       (random-cpp-expr (+ depth 1))
-                       (concat (sp) (text "&&") (sp)))
-                      ")"))
+          (cat/str "("
+             (times/sep/cat
+              (random/from-range 2 4)
+              (random-cpp-expr (+ depth 1))
+              (concat (sp) (text "&&") (sp)))
+             ")"))
      )))
 
 (define (random-cpp-var-decl)
@@ -286,6 +291,7 @@
          ;;(cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
+     (cons "CPP expression" (random-cpp-expr))
      ;;(cons "random compilation unit" (random-compilation-unit))
      (cons "top-level declaration" (random-decl 'tl 1))
      (cons "variable #define" (random-cpp-var-decl))
