@@ -171,9 +171,9 @@
                   (cons underscore
                         (cons underscore upper-lst)))))
 
-;; xxx restrict recursion of templates
 ;; xxx support qualified names in reference contexts
-(define (random-typename #:min (min 5)
+(define (random-typename (depth 1)
+                         #:min (min 5)
                          #:max (max 15)
                          #:args-ok (args-ok #t))
   (let* ((pfx "T")
@@ -186,9 +186,9 @@
       (string-append pfx
                      (random-string/readable
                       (random/from-range min-len max-len) lst)))
-     (and args-ok (one-in-three?)
+     (and args-ok (< (random (+ 8 depth)) 3)
           (let* ((n (random/from-range 1 4))
-                 (args (times/sep/cat n (random-typename)
+                 (args (times/sep/cat n (random-typename (+ depth 1))
                                       (concat (text ",") (line)))))
             (bracket "<" args ">"))))))
 
