@@ -58,16 +58,25 @@
             doc)) (line)
    (text "}")))
 
-(define (c-struct name members)
-  (concat
+(define (indented-block pre body)
+  (private-union
+   (concat
+    (ind-cat
+     pre (text "{")
+     (and body (concat (line) body)))
+    (line) (text "}"))
    (ind-cat
-    (text "struct") (sp) (text "{")
-    (and (not (null? members))
-         (concat
-          (line)
-          (apply concat (add-between members (concat (line) (line))))
-          )))
-   (line) (text "};")))
+    pre (text "{")
+    (and body (concat (line) body (line)))
+    (text "}"))))
+
+(define (c-struct name members)
+  (let ((pre (concat (text "struct") (sp)))
+        (body (and (not (null? members))
+                   (apply concat
+                          (add-between members
+                                       (concat (line) (line)))))))
+    (concat (indented-block pre body) (text ";"))))
 
 (define (c-if c t (e #f))
   (cat
@@ -162,6 +171,8 @@
                   (cons underscore
                         (cons underscore upper-lst)))))
 
+;; xxx restrict recursion of templates
+;; xxx support qualified names in reference contexts
 (define (random-typename #:min (min 5)
                          #:max (max 15)
                          #:args-ok (args-ok #t))
@@ -203,16 +214,6 @@
             (random-cpp-varname) (sp)
             (random-cpp-expr 1))))
 
-(define-syntax random-case
-  (syntax-rules (generate with)
-    ((_ (names ...) (generate (name with expr) ...))
-     (let ((kind (random/from-list '(names ...))))
-       (cond
-        ((eq? kind (quote name))
-         expr)
-        ...
-        (else (error "unsupported" kind)))))))
-
 (define-syntax random-case/scored
   (syntax-rules ()
     ((_ (name score-expr gen-expr) ...)
@@ -248,6 +249,10 @@
   (c-struct (random-typename)
             (let ((n (random/from-range 0 6)))
               (times/list n (random-decl 'member (+ depth 1))))))
+
+;; xxx random expression to be supported (one of variable ref, function call, trinary expression, qualified type instantiation, '+' expression, and on the right hand side of a '+' expression integer literals allowed as well)
+
+;; xxx random statement to be supported (one of 'return', cpp-if, 'if' statement, expression statement, (local) var declaration)
 
 ;; xxx function to be supported
 (define (random-decl ctx depth)
