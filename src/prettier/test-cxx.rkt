@@ -97,6 +97,10 @@
   (for/list ((i (in-range n))) expr))
 
 (define-syntax-rule
+  (times/cat count elem-expr)
+  (apply cat (times/list count elem-expr)))
+
+(define-syntax-rule
   (times/sep/cat count elem-expr sep-expr)
   (let ((lst '()))
     (let recur ((n count)
@@ -171,24 +175,44 @@
                   (cons underscore
                         (cons underscore upper-lst)))))
 
-;; xxx support qualified names in reference contexts
+(define (random-namespace-name
+         #:min (min 5)
+         #:max (max 8))
+  (let* ((pfx "N")
+         (pfx-len (string-length pfx))
+         (min-len (- min pfx-len))
+         (max-len (- max pfx-len))
+         (lst (cons underscore lower-lst)))
+    (text
+     (string-append pfx
+                    (random-string/readable
+                     (random/from-range min-len max-len) lst)))))
+
+(define (random-qual (count (+ 1 (random 2))))
+  (times/cat count
+             (concat (random-namespace-name) (text "::") (br))))
+
 (define (random-typename (depth 1)
                          #:min (min 5)
                          #:max (max 15)
+                         #:ref (ref #f)
                          #:args-ok (args-ok #t))
   (let* ((pfx "T")
          (pfx-len (string-length pfx))
          (min-len (- min pfx-len))
          (max-len (- max pfx-len))
          (lst (cons underscore lower-lst)))
-    (cat 
+    (cat
+     (and ref (one-in-three?)
+          (random-qual))
      (text
       (string-append pfx
                      (random-string/readable
                       (random/from-range min-len max-len) lst)))
      (and args-ok (< (random (+ 8 depth)) 3)
           (let* ((n (random/from-range 1 4))
-                 (args (times/sep/cat n (random-typename (+ depth 1))
+                 (args (times/sep/cat n
+                                      (random-typename (+ depth 1) #:ref #t)
                                       (concat (text ",") (line)))))
             (bracket "<" args ">"))))))
 
@@ -247,7 +271,7 @@
 
 (define (random-typedef)
   (ind-cat (text "typedef") (sp)
-           (random-typename) (sp)
+           (random-typename #:ref #t) (sp)
            (random-typename #:args-ok #f) (text ";")))
 
 (define (random-struct depth)
