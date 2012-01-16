@@ -107,10 +107,19 @@
      (folddoc (lambda (x y)
                 (concat x sep y)) exprs))))
 
+(define (infix op)
+  (private-union
+   (text (format " ~a " op))
+   (concat (text (format " ~a" op)) (nl))))
+
+(define (c-if-expr c t e ctx)
+  (maybe-parens (eq? ctx 'inner)
+                (concat c (infix "?") t (infix ":") e)))
+
 (define (c-expr-stmt expr)
   (concat expr (text ";")))
 
-(define (c-if-stmt c t (e #f))
+(define (c-if-stmt c t (e #f)) ;; xxx not looking good
   (cat
    (ind (concat (text "if") (sp) (parens c))) (sp)
    (c-block t)
@@ -340,11 +349,14 @@
             (let ((n (random/from-range 0 6)))
               (times/list n (random-decl 'member (+ depth 1))))))
 
-;; xxx random expression to be supported (function call, trinary expression, qualified type instantiation)
+;; xxx random expression to be supported (function call, qualified type instantiation)
 (define (random-expr (depth 1) (ctx 'outer) #:int? (int? #f))
   (random-case/scored
    (var-ref 5 (random-varname))
    (int-lit (if int? 5 0) (c-int (random 1000)))
+   (if (- 4 depth) (c-if-expr (random-expr (+ depth 1) 'inner)
+                              (random-expr (+ depth 1) 'inner)
+                              (random-expr (+ depth 1) 'inner) ctx))
    (add (- 5 depth)
         (let ((l (random-expr (+ depth 1) 'inner))
               (r-lst
