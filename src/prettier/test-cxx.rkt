@@ -85,6 +85,28 @@
    (and e
         (concat (ind (concat (text "else"))) (sp) (c-block e)))))
 
+(define (c-func modifs rtype name params stmts)
+  (cat
+   (ind-cat (and (not (null? modifs))
+                 (apply concat
+                        (map (lambda (modif)
+                               (concat modif (sp))) modifs)))
+            (and rtype (concat rtype (sp)))
+            name
+            (if (null? params)
+                (text "()")
+                (bracket/br "("
+                            (apply concat
+                                   (add-between params
+                                                (concat (text ",") (line))))
+                            ")")))
+   (line)
+   (text "{")
+   (and (not (null? stmts))
+        (ind-cat (line)
+                 (apply stack stmts)))
+   (line) (text "}")))
+
 ;;; 
 ;;; C++ test data generator
 ;;; 
@@ -129,6 +151,10 @@
 (define (vowel? c)
   (memv c (list #\a #\e #\i #\o #\u #\y
                 #\A #\E #\I #\O #\U #\Y)))
+(define (underscore? c)
+  (eqv? c underscore))
+(define (vowel/us? c)
+  (or (vowel? c) (underscore? c)))
 
 (define (random/from-list lst)
   (list-ref lst (random (length lst))))
@@ -143,7 +169,7 @@
   (let next ((n n) (lst '()) (was? #t))
     (if (> n 0)
         (let* ((c (random/from-list alphabet))
-               (v (vowel? c))
+               (v (vowel/us? c))
                (ok (or v was?)))
           (if ok
               (next (- n 1) (cons c lst) v)
@@ -166,7 +192,7 @@
                         #:max (max-len 15))
   (text
    (random-string/readable (random/from-range min-len max-len)
-                  (cons underscore lower-lst))))
+                  (cons underscore (cons underscore lower-lst)))))
 
 (define (random-cpp-varname #:min (min-len 10)
                             #:max (max-len 15))
@@ -282,12 +308,21 @@
 ;; xxx random expression to be supported (one of variable ref, function call, trinary expression, qualified type instantiation, '+' expression, and on the right hand side of a '+' expression integer literals allowed as well)
 
 ;; xxx random statement to be supported (one of 'return', cpp-if, 'if' statement, expression statement, (local) var declaration)
+(define (random-func ctx)
+  (c-func (if (eq? ctx 'tl)
+              (list (text "static"))
+              '()) ;; modifiers
+          (text "void") ;; return type
+          (random-funname) ;; function name
+          '() ;; parameters
+          '() ;; body statements xxx
+          ))
 
-;; xxx function to be supported
 (define (random-decl ctx depth)
   (random-case/scored
     (struct (- 5 depth) (random-struct depth))
     (var 4 (random-vardecl ctx))
+    (fun 4 (random-func ctx))
     (typedef 3 (random-typedef))
     (cpp-var (if (eq? ctx 'tl) 2 0) (random-cpp-var-decl))
     (cpp-if (- 1 depth) (cpp-if (random-cpp-expr depth)
@@ -315,6 +350,7 @@
          ;;(cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
+     (cons "function declaration" (random-func 'tl))
      (cons "CPP expression" (random-cpp-expr))
      ;;(cons "random compilation unit" (random-compilation-unit))
      (cons "top-level declaration" (random-decl 'tl 1))
