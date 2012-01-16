@@ -58,7 +58,8 @@
             doc)) (line)
    (text "}")))
 
-(define (indented-block pre body)
+;; Tries to put opening "{" on the same line as 'pre'.
+(define (indented-block/same pre body)
   (private-union
    (concat
     (ind-cat
@@ -70,13 +71,25 @@
     (and body (concat (line) body (line)))
     (text "}"))))
 
+;; Puts opening "{" on a separate line (following any 'pre').
+(define (indented-block #:pre (pre #f)
+                        #:body (body #f)
+                        #:body-elems (body-elems '())
+                        #:post (post #f))
+  (cat
+   pre (line)
+   (text "{")
+   (if body
+       (ind-cat (line) body)
+       (and (not (null? body-elems))
+            (ind-cat (line) (stack body-elems))))
+   (line) (text "}") post))
+
 (define (c-struct name members)
-  (let ((pre (concat (text "struct") (sp)))
-        (body (and (not (null? members))
-                   (apply concat
-                          (add-between members
-                                       (concat (line) (line)))))))
-    (concat (indented-block pre body) (text ";"))))
+  (let ((pre (cat (text "struct") (sp) name)))
+    (indented-block #:pre pre
+                    #:body-elems members
+                    #:post (text ";"))))
 
 (define (c-if c t (e #f))
   (cat
@@ -104,7 +117,7 @@
    (text "{")
    (and (not (null? stmts))
         (ind-cat (line)
-                 (apply stack stmts)))
+                 (stack stmts)))
    (line) (text "}")))
 
 ;;; 
