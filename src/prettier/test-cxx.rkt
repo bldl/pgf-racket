@@ -91,7 +91,7 @@
                     #:body-elems members
                     #:post (text ";"))))
 
-(define (c-if c t (e #f))
+(define (c-if-stmt c t (e #f))
   (cat
    (ind (concat (text "if") (sp) (parens c))) (sp)
    (c-block t)
@@ -261,12 +261,15 @@
 (define (random-cpp-expr (depth 1))
   (define (f/br s1 doc s2)
     (concat (text s1) (br) doc (br) (text s2)))
+  (define outer? (eqv? depth 1))
   (in-cpp
    (random-case/scored
      (int 5 (text (number->string (random 1000))))
      (var 4 (random-cpp-varname))
      (defined 2 (f/br "defined(" (random-cpp-varname) ")"))
-     (not 2 (cat/str "!(" (random-cpp-expr (+ depth 1)) ")"))
+     (not 2 (if outer?
+                (cat/str "!" (random-cpp-expr (+ depth 1)))
+                (cat/str "(!" (random-cpp-expr (+ depth 1)) ")")))
      (and (- 7 depth)
           (cat/str "("
              (times/sep/cat
@@ -369,24 +372,24 @@
          (true-1 (text "true"))
          (break-1 (text "break;"))
          (continue-1 (text "continue;"))
-         (if-1 (c-if true-1 break-1))
+         (if-1 (c-if-stmt true-1 break-1))
          ;;(cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
+     (cons "if statement" if-1)
+     (cons "variable #define" (random-cpp-var-decl))
      (cons "function declaration" (random-func 'tl))
-     (cons "CPP expression" (random-cpp-expr))
+     ;;(cons "CPP expression" (random-cpp-expr))
      ;;(cons "random compilation unit" (random-compilation-unit))
      (cons "top-level declaration" (random-decl 'tl 1))
-     (cons "variable #define" (random-cpp-var-decl))
      (cons "empty struct" (c-struct (text "EmptyStruct") (list)))
      (cons "struct with one member"
            (c-struct (text "SmallStruct") (list (random-vardecl 'member))))
      ;; (cons "nothing" (nil))
      ;; (cons "break statement" break-1)
-     ;; (cons "if statement" if-1)
-     ;; (cons "nested if statement with complex condition" (c-if (fillwords "1 && 2 && 1==2 && defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__") if-1))
+     ;; (cons "nested if statement with complex condition" (c-if-stmt (fillwords "1 && 2 && 1==2 && defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__") if-1))
      ;; (cons "#if-else" (cpp-if-else "defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__" (text "return 1;") (text "return 2;")))
-     ;; (cons "nested CPP" (c-if true-1 cpp-1))
+     ;; (cons "nested CPP" (c-if-stmt true-1 cpp-1))
      )))
 
 (define w-lst '(5 10 15 25 35 45 55 65 75))
