@@ -280,7 +280,7 @@
   (in-cpp
    (ind-cat (text "#define") (sp)
             (random-cpp-varname) (sp)
-            (random-cpp-expr 1))))
+            (random-cpp-expr))))
 
 (define-syntax random-case/scored
   (syntax-rules ()
@@ -320,7 +320,16 @@
 
 ;; xxx random expression to be supported (one of variable ref, function call, trinary expression, qualified type instantiation, '+' expression, and on the right hand side of a '+' expression integer literals allowed as well)
 
-;; xxx random statement to be supported (one of 'return', cpp-if, 'if' statement, expression statement, (local) var declaration)
+;; xxx random statement to be supported ('if' statement, expression statement)
+(define (random-stmt (depth 1))
+  (random-case/scored
+   (var 4 (random-vardecl 'local))
+   (return 2 (text "return;"))
+   (cpp-if (- 2 depth) (cpp-if (random-cpp-expr)
+                               (random-stmt (+ depth 1))
+                               (and (one-in-three?)
+                                    (random-stmt (+ depth 1)))))))
+
 (define (random-func ctx)
   (c-func (if (eq? ctx 'tl)
               (list (text "static"))
@@ -328,7 +337,8 @@
           (text "void") ;; return type
           (random-funname) ;; function name
           '() ;; parameters
-          '() ;; body statements xxx
+          (let ((n (random/from-range 0 6)))
+            (times/list n (random-stmt)))
           ))
 
 (define (random-decl ctx depth)
@@ -338,7 +348,7 @@
     (fun 4 (random-func ctx))
     (typedef 3 (random-typedef))
     (cpp-var (if (eq? ctx 'tl) 2 0) (random-cpp-var-decl))
-    (cpp-if (- 1 depth) (cpp-if (random-cpp-expr depth)
+    (cpp-if (- 1 depth) (cpp-if (random-cpp-expr)
                                 (random-decl ctx depth)
                                 (and (one-in-three?)
                                      (random-decl ctx depth))))))
