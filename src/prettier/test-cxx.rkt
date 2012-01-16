@@ -91,6 +91,25 @@
                     #:body-elems members
                     #:post (text ";"))))
 
+(define (c-int n)
+  (text (number->string n)))
+
+(define (maybe-parens yes? doc)
+  (if yes?
+      (concat (text "(") doc (text ")"))
+      doc))
+
+(define (c-add-expr exprs ctx)
+  (let ((sep (private-union (text " + ")
+                            (concat (text " +") (nl)))))
+    (maybe-parens
+     (not (eq? ctx 'outer))
+     (folddoc (lambda (x y)
+                (concat x sep y)) exprs))))
+
+(define (c-expr-stmt expr)
+  (concat expr (text ";")))
+
 (define (c-if-stmt c t (e #f))
   (cat
    (ind (concat (text "if") (sp) (parens c))) (sp)
@@ -321,13 +340,24 @@
             (let ((n (random/from-range 0 6)))
               (times/list n (random-decl 'member (+ depth 1))))))
 
-;; xxx random expression to be supported (one of variable ref, function call, trinary expression, qualified type instantiation, '+' expression, and on the right hand side of a '+' expression integer literals allowed as well)
+;; xxx random expression to be supported (function call, trinary expression, qualified type instantiation)
+(define (random-expr (depth 1) (ctx 'outer) #:int? (int? #f))
+  (random-case/scored
+   (var-ref 5 (random-varname))
+   (int-lit (if int? 5 0) (c-int (random 1000)))
+   (add (- 5 depth)
+        (let ((l (random-expr (+ depth 1) 'inner))
+              (r-lst
+               (let ((n (random/from-range 1 5)))
+                 (times/list n (random-expr (+ depth 1) 'inner #:int? #t)))))
+          (c-add-expr (cons l r-lst) ctx)))))
 
-;; xxx random statement to be supported ('if' statement, expression statement)
+;; xxx random statement to be supported ('if' statement)
 (define (random-stmt (depth 1))
   (random-case/scored
    (var 4 (random-vardecl 'local))
    (return 2 (text "return;"))
+   (expr 4 (c-expr-stmt (random-expr))) ;; do random call instead xxx
    (cpp-if (- 2 depth) (cpp-if (random-cpp-expr)
                                (random-stmt (+ depth 1))
                                (and (one-in-three?)
@@ -376,9 +406,10 @@
          ;;(cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
+     (cons "function declaration" (random-func 'tl))
+     (cons "expression" (random-expr))
      (cons "if statement" if-1)
      (cons "variable #define" (random-cpp-var-decl))
-     (cons "function declaration" (random-func 'tl))
      ;;(cons "CPP expression" (random-cpp-expr))
      ;;(cons "random compilation unit" (random-compilation-unit))
      (cons "top-level declaration" (random-decl 'tl 1))
