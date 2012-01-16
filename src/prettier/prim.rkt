@@ -45,6 +45,7 @@
 
 (define* concat
   (case-lambda
+    (() (NIL))
     ((x) x)
     ((x y . rest)
      (CONCAT x (apply concat y rest)))))
