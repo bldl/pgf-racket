@@ -103,11 +103,10 @@
   (maybe-parens (eq? ctx 'inner)
                 (concat c (infix "?") t (infix ":") e)))
 
-;; xxx this formatting is often way too wide
 (define (c-call-expr n args)
   (let* ((xs (add-between args (concat (text ",") (line))))
          (x (apply concat xs)))
-    (concat n (text "(")
+    (concat n (br) (text "(")
             (align (group x)) (text ")"))))
   
 (define (c-expr-stmt expr)
