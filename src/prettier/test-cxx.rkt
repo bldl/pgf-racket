@@ -103,6 +103,13 @@
   (maybe-parens (eq? ctx 'inner)
                 (concat c (infix "?") t (infix ":") e)))
 
+;; xxx this formatting is often way too wide
+(define (c-call-expr n args)
+  (let* ((xs (add-between args (concat (text ",") (line))))
+         (x (apply concat xs)))
+    (concat n (text "(")
+            (align (group x)) (text ")"))))
+  
 (define (c-expr-stmt expr)
   (concat expr (text ";")))
 
@@ -392,9 +399,15 @@
             (let ((n (random/from-range 0 6)))
               (times/list n (random-decl 'member (+ depth 1))))))
 
-;; xxx random expression to be supported (function call, qualified type instantiation)
+(define (random-call (depth 1))
+  (let* ((n (random/from-range 1 4))
+         (args (times/list n (random-expr (+ depth 1) 'outer #:int? #t))))
+    (c-call-expr (random-funname #:min 5 #:max 10) args)))
+
+;; xxx random expression to be supported (qualified type instantiation)
 (define (random-expr (depth 1) (ctx 'outer) #:int? (int? #f))
   (random-case/scored
+   (call 4 (random-call depth))
    (var-ref 5 (random-varname))
    (int-lit (if int? 5 0) (c-int (random 1000)))
    (if (- 4 depth) (c-if-expr (random-expr (+ depth 1) 'inner)
