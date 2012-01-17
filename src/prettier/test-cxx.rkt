@@ -147,8 +147,9 @@
    (text "else")
    (and (not (null? e-lst)) (stack e-lst))))
 
-(define (c-func modifs rtype name params stmts)
+(define (c-func modifs rtype name params stmts #:doc (doc-s #f))
   (cat
+   (and doc-s (concat (c-block-comment doc-s) (line)))
    (ind-cat (and (not (null? modifs))
                  (apply concat
                         (map (lambda (modif)
@@ -168,6 +169,12 @@
         (ind-cat (line)
                  (stack stmts)))
    (line) (text "}")))
+
+(define (c-line-comment s)
+  (concat (text "// ") (nest/str "// " (fillwords s))))
+
+(define (c-block-comment s)
+  (concat (text "/** ") (align (fillwords s)) (text " */")))
 
 ;;; 
 ;;; C++ test data generator
@@ -230,16 +237,28 @@
 (define (random-string n lst)
   (apply string (for/list ((i (in-range n))) (random/from-list lst))))
 
-(define (random-string/readable n alphabet)
+(define (random-string/readable n alphabet #:capitalize? (cap #f))
   (let next ((n n) (lst '()) (was? #t))
     (if (> n 0)
         (let* ((c (random/from-list alphabet))
                (v (vowel/us? c))
                (ok (or v was?)))
           (if ok
-              (next (- n 1) (cons c lst) v)
+              (let ((c (if (and cap (null? lst)) (char-upcase c) c)))
+                (next (- n 1) (cons c lst) v))
               (next n lst was?)))
         (apply string (reverse lst)))))
+
+(define (random-sentence)
+  (let ((s (apply string-append
+                  (add-between
+                   (times/list (+ 3 (random 100))
+                               (random-string/readable
+                                (random/from-range 3 10)
+                                lower-lst))
+                   " "))))
+    (string-set! s 0 (char-upcase (string-ref s 0)))
+    (string-append s ".")))
 
 (define (random-varname #:min (min 5)
                         #:max (max 10)
@@ -388,6 +407,7 @@
                  (times/list n (random-expr (+ depth 1) 'inner #:int? #t)))))
           (c-add-expr (cons l r-lst) ctx)))))
 
+;; xxx line comments for statements
 (define (random-stmt (depth 1))
   (random-case/scored
    (var 4 (random-vardecl 'local))
@@ -413,6 +433,7 @@
           '() ;; parameters
           (let ((n (random/from-range 0 6)))
             (times/list n (random-stmt)))
+          #:doc (and (one-in-three?) (random-sentence))
           ))
 
 (define (random-decl ctx depth)
@@ -448,6 +469,8 @@
          )
     (list
      (cons "function declaration" (random-func 'tl))
+     (cons "line comment" (c-line-comment "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. Sed sit amet ipsum mauris. Maecenas congue ligula ac quam viverra nec consectetur ante hendrerit."))
+     ;;(cons "block comment" (c-block-comment "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. Sed sit amet ipsum mauris. Maecenas congue ligula ac quam viverra nec consectetur ante hendrerit."))
      (cons "if statement without else" (c-if-stmt true-1 (list break-1)))
      (cons "if statement with else" if-1)
      (cons "statement" (random-stmt))
