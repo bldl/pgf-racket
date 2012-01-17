@@ -142,7 +142,7 @@
 
 (define (c-if-stmt c t-lst (e-lst '()))
   (two-block
-   (concat (text "if") (sp) (text "(") c (text ")"))
+   (concat (text "if (") c (text ")"))
    (and (not (null? t-lst)) (stack t-lst))
    (text "else")
    (and (not (null? e-lst)) (stack e-lst))))
@@ -381,10 +381,10 @@
    (if (- 4 depth) (c-if-expr (random-expr (+ depth 1) 'inner)
                               (random-expr (+ depth 1) 'inner)
                               (random-expr (+ depth 1) 'inner) ctx))
-   (add (- 5 depth)
+   (add (- 3 depth)
         (let ((l (random-expr (+ depth 1) 'inner))
               (r-lst
-               (let ((n (random/from-range 1 5)))
+               (let ((n (random/from-range 1 4)))
                  (times/list n (random-expr (+ depth 1) 'inner #:int? #t)))))
           (c-add-expr (cons l r-lst) ctx)))))
 
