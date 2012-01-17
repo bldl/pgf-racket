@@ -58,19 +58,6 @@
             doc)) (line)
    (text "}")))
 
-;; Tries to put opening "{" on the same line as 'pre'.
-(define (indented-block/same pre body)
-  (private-union
-   (concat
-    (ind-cat
-     pre (text "{")
-     (and body (concat (line) body)))
-    (line) (text "}"))
-   (ind-cat
-    pre (text "{")
-    (and body (concat (line) body (line)))
-    (text "}"))))
-
 ;; Puts opening "{" on a separate line (following any 'pre').
 (define (indented-block #:pre (pre #f)
                         #:body (body #f)
@@ -119,12 +106,46 @@
 (define (c-expr-stmt expr)
   (concat expr (text ";")))
 
-(define (c-if-stmt c t (e #f)) ;; xxx not looking good
+;; Tries to put opening "{" on the same line as 'pre'.
+(define (indented-block/same pre body)
+  (private-union
+   (concat
+    (ind-cat
+     pre (text "{1")
+     (and body (concat (line) body)))
+    (line) (text "}1"))
+   (ind-cat
+    pre (text "{2")
+    (and body (concat (line) body (line)))
+    (text "}2"))))
+
+;; Chooses formatting for the second block according to how the
+;; formatting of the first block ends up fitting.
+(define (two-block pre body-1 mid (body-2 #f))
   (cat
-   (ind (concat (text "if") (sp) (parens c))) (sp)
-   (c-block t)
-   (and e
-        (concat (ind (concat (text "else"))) (sp) (c-block e)))))
+   (and pre (ind pre))
+   (private-union
+    (cat (text " {")
+         (and body-1 (ind-cat (line) body-1))
+         (line) (text "}")
+         (and body-2
+              (cat (sp) mid (sp) (text "{")
+                   (ind-cat (line) body-2)
+                   (line) (text "}"))))
+    (cat (line) (text "{")
+         (and body-1 (ind-cat (line) body-1))
+         (line) (text "}")
+         (and body-2
+              (cat (line) mid (line) (text "{")
+                   (ind-cat (line) body-2)
+                   (line) (text "}")))))))
+
+(define (c-if-stmt c t-lst (e-lst '()))
+  (two-block
+   (concat (text "if") (sp) (text "(") c (text ")"))
+   (and (not (null? t-lst)) (stack t-lst))
+   (text "else")
+   (and (not (null? e-lst)) (stack e-lst))))
 
 (define (c-func modifs rtype name params stmts)
   (cat
@@ -154,6 +175,9 @@
 
 (define (one-in-three?)
   (= (random 3) 0))
+
+(define (one-in-two?)
+  (= (random 2) 0))
 
 (define-syntax-rule
   (times/list n expr)
@@ -364,12 +388,17 @@
                  (times/list n (random-expr (+ depth 1) 'inner #:int? #t)))))
           (c-add-expr (cons l r-lst) ctx)))))
 
-;; xxx random statement to be supported ('if' statement)
 (define (random-stmt (depth 1))
   (random-case/scored
    (var 4 (random-vardecl 'local))
    (return 2 (text "return;"))
    (expr 4 (c-expr-stmt (random-expr))) ;; do random call instead xxx
+   (if (- 5 depth)
+       (c-if-stmt (random-expr #:int? #t)
+                  (times/list (random 5) (random-stmt (+ depth 1)))
+                  (if (one-in-two?)
+                      (times/list (random 5) (random-stmt (+ depth 1)))
+                      '())))
    (cpp-if (- 2 depth) (cpp-if (random-cpp-expr)
                                (random-stmt (+ depth 1))
                                (and (one-in-three?)
@@ -414,13 +443,15 @@
          (true-1 (text "true"))
          (break-1 (text "break;"))
          (continue-1 (text "continue;"))
-         (if-1 (c-if-stmt true-1 break-1))
+         (if-1 (c-if-stmt true-1 (list break-1) (list continue-1)))
          ;;(cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
      (cons "function declaration" (random-func 'tl))
+     (cons "if statement without else" (c-if-stmt true-1 (list break-1)))
+     (cons "if statement with else" if-1)
+     (cons "statement" (random-stmt))
      (cons "expression" (random-expr))
-     (cons "if statement" if-1)
      (cons "variable #define" (random-cpp-var-decl))
      ;;(cons "CPP expression" (random-cpp-expr))
      ;;(cons "random compilation unit" (random-compilation-unit))
