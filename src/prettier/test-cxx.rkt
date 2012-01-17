@@ -407,9 +407,9 @@
                  (times/list n (random-expr (+ depth 1) 'inner #:int? #t)))))
           (c-add-expr (cons l r-lst) ctx)))))
 
-;; xxx line comments for statements
 (define (random-stmt (depth 1))
   (random-case/scored
+   (comment 1 (c-line-comment (random-sentence)))
    (var 4 (random-vardecl 'local))
    (return 2 (text "return;"))
    (expr 4 (c-expr-stmt (random-expr))) ;; do random call instead xxx
