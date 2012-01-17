@@ -424,7 +424,7 @@
    (comment 1 (c-line-comment (random-sentence)))
    (var 4 (random-vardecl 'local))
    (return 2 (text "return;"))
-   (expr 4 (c-expr-stmt (random-expr))) ;; do random call instead xxx
+   (expr 4 (c-expr-stmt (random-call)))
    (if (- 5 depth)
        (c-if-stmt (random-expr #:int? #t)
                   (times/list (random 5) (random-stmt (+ depth 1)))
