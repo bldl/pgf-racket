@@ -58,6 +58,11 @@
             doc)) (line)
    (text "}")))
 
+(define (stack/2-ln doc)
+  (define (</> x y)
+    (concat x (line) (line) y))
+  (folddoc </> doc))
+
 ;; Puts opening "{" on a separate line (following any 'pre').
 (define (indented-block #:pre (pre #f)
                         #:body (body #f)
@@ -69,7 +74,7 @@
    (if body
        (ind-cat (line) body)
        (and (not (null? body-elems))
-            (ind-cat (line) (stack body-elems))))
+            (ind-cat (line) (stack/2-ln body-elems))))
    (line) (text "}") post))
 
 (define (c-struct name members)
@@ -108,7 +113,13 @@
          (x (apply concat xs)))
     (concat n (br) (text "(")
             (align (group x)) (text ")"))))
-  
+
+(define (c-qual-type-inst n args)
+  (let* ((xs (add-between args (concat (text ",") (line))))
+         (x (apply concat xs)))
+    (concat n (br) (text "{")
+            (align (group x)) (text "}"))))
+
 (define (c-expr-stmt expr)
   (concat expr (text ";")))
 
@@ -399,14 +410,20 @@
               (times/list n (random-decl 'member (+ depth 1))))))
 
 (define (random-call (depth 1))
-  (let* ((n (random/from-range 1 4))
+  (let* ((n (random/from-range 0 3))
          (args (times/list n (random-expr (+ depth 1) 'outer #:int? #t))))
     (c-call-expr (random-funname #:min 5 #:max 10) args)))
 
-;; xxx random expression to be supported (qualified type instantiation)
+(define (random-qual-type-inst)
+  (let* ((t (random-typename #:min 4 #:max 5 #:args-ok #f))
+         (n (random/from-range 1 15))
+         (args (times/list n (c-int (random 1000)))))
+    (c-qual-type-inst t args)))
+
 (define (random-expr (depth 1) (ctx 'outer) #:int? (int? #f))
   (random-case/scored
-   (call 4 (random-call depth))
+   (call (- 5 depth) (random-call depth))
+   (type-inst 2 (random-qual-type-inst))
    (var-ref 5 (random-varname))
    (int-lit (if int? 5 0) (c-int (random 1000)))
    (if (- 4 depth) (c-if-expr (random-expr (+ depth 1) 'inner)
@@ -480,20 +497,19 @@
          ;;(cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
-     (cons "function declaration" (random-func 'tl))
-     (cons "line comment" (c-line-comment "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. Sed sit amet ipsum mauris. Maecenas congue ligula ac quam viverra nec consectetur ante hendrerit."))
+     ;;(cons "function declaration" (random-func 'tl))
+     ;;(cons "line comment" (c-line-comment "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. Sed sit amet ipsum mauris. Maecenas congue ligula ac quam viverra nec consectetur ante hendrerit."))
      ;;(cons "block comment" (c-block-comment "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. Sed sit amet ipsum mauris. Maecenas congue ligula ac quam viverra nec consectetur ante hendrerit."))
-     (cons "if statement without else" (c-if-stmt true-1 (list break-1)))
-     (cons "if statement with else" if-1)
-     (cons "statement" (random-stmt))
-     (cons "expression" (random-expr))
-     (cons "variable #define" (random-cpp-var-decl))
+     ;;(cons "if statement without else" (c-if-stmt true-1 (list break-1)))
+     ;;(cons "if statement with else" if-1)
+     ;;(cons "statement" (random-stmt))
+     ;;(cons "expression" (random-expr))
+     ;;(cons "variable #define" (random-cpp-var-decl))
      ;;(cons "CPP expression" (random-cpp-expr))
-     ;;(cons "random compilation unit" (random-compilation-unit))
-     (cons "top-level declaration" (random-decl 'tl 1))
-     (cons "empty struct" (c-struct (text "EmptyStruct") (list)))
-     (cons "struct with one member"
-           (c-struct (text "SmallStruct") (list (random-vardecl 'member))))
+     (cons "random compilation unit" (random-compilation-unit))
+     ;;(cons "top-level declaration" (random-decl 'tl 1))
+     ;;(cons "empty struct" (c-struct (text "EmptyStruct") (list)))
+     ;;(cons "struct with one member" (c-struct (text "SmallStruct") (list (random-vardecl 'member))))
      ;; (cons "nothing" (nil))
      ;; (cons "break statement" break-1)
      ;; (cons "nested if statement with complex condition" (c-if-stmt (fillwords "1 && 2 && 1==2 && defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__") if-1))
