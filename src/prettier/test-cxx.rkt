@@ -405,7 +405,7 @@
            (random-typename #:args-ok #f) (text ";")))
 
 (define (random-struct depth)
-  (c-struct (random-typename)
+  (c-struct (random-typename #:args-ok #f)
             (let ((n (random/from-range 0 6)))
               (times/list n (random-decl 'member (+ depth 1))))))
 
