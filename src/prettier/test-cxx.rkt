@@ -524,14 +524,14 @@
 ;;; 
 
 (define (test-doc w t d)
-  (printfln "~a (w=~a)" t w)
+  (printfln "// ~a (w=~a)" t w)
   (newline)
   ;;(writeln (DOC-to-sexp d)) (newline)
   (displayln (pretty w d))
-  (displayln "----------"))
+  (displayln "// ----------"))
 
 (define (main)
-  (for* ((w w-lst)
+  (for* ((w (reverse w-lst))
          (d d-lst))
         (test-doc w (car d) (cdr d))))
       
