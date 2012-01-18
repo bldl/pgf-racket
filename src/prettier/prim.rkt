@@ -127,6 +127,9 @@
           (St-doc st)
           (recur st)))))
 
+;; w:: page width (integer)
+;; st:: state before choices (St)
+;; Returns:: state after choices (St)
 (define (be w st)
   ;; It would be more idiomatic to Scheme to use recursion here, but
   ;; we're instead using a loop as we don't want to rely on tail
@@ -171,7 +174,10 @@
               ;; to compute its length easily.
               (let ((l-st (be w (St (Nil) k 
                                     (cons (Be i (UNION-ldoc d)) z)))))
-                (if (fits (- w k) (St-doc l-st))
+                ;; In Wadler's algorithm the first argument of 'fits'
+                ;; is computed as (- w k). This implementation takes a
+                ;; fraction of available page width.
+                (if (fits (- (* w (UNION-str d)) k) (St-doc l-st))
                     ;; Here, too, we return control, with the
                     ;; assumption that either a line break or the end
                     ;; of document has been encountered within the
@@ -183,6 +189,9 @@
                     (recur (St fd k (cons (Be i (UNION-rdoc d)) z))))))
              (else (error "be: unexpected" d))))))))
 
+;; w:: remaining width (integer)
+;; d:: formatted document whose first line to try fitting (St)
+;; Returns:: whether fits (boolean)
 (define (fits w d)
   (let recur ((w w)
               (lst (list d)))
