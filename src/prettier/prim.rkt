@@ -14,7 +14,7 @@
            (NEST lv doc) ;; Lv, DOC -> DOC
            (TEXT s) ;; string -> DOC
            (LINE s) ;; string -> DOC
-           (UNION ldoc rdoc))) ;; DOC, DOC -> DOC
+           (UNION ldoc rdoc str))) ;; DOC, DOC, rational -> DOC
 
 (data Doc ((Nil) ;; -> Doc
            (Text s) ;; string -> Doc
@@ -50,9 +50,11 @@
     ((x y . rest)
      (CONCAT x (apply concat y rest)))))
 
-(provide (rename-out (UNION private-union)))
+;; str:: Eagerness to choose first fitting fragment. (rational)
+(define* (private-union l r (str 1))
+  (UNION l r str))
 
-(define* (group x) (UNION (flatten x) x))
+(define* (group x) (private-union (flatten x) x))
 
 (define* (flatten d)
   (cond
@@ -218,8 +220,9 @@
                    (else (error "unexpected" lv)))))
    ((TEXT? doc) `(text ,(TEXT-s doc)))
    ((LINE? doc) `(line ,(LINE-s doc)))
-   ((UNION? doc) `(concat ,(DOC-to-sexp (UNION-ldoc doc))
-                          ,(DOC-to-sexp (UNION-rdoc doc))))
+   ((UNION? doc) `(union ,(UNION-str doc)
+                         ,(DOC-to-sexp (UNION-ldoc doc))
+                         ,(DOC-to-sexp (UNION-rdoc doc))))
    (else (error "DOC-to-sexp: unexpected" doc))))
 
 (define* (Doc-to-sexp doc)
