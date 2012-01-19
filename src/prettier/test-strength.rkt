@@ -2,7 +2,6 @@
 
 (require "hl.rkt")
 (require "prim.rkt")
-(require "tree-example.rkt")
 (require "util.rkt")
 
 ;;; Test code
@@ -74,17 +73,10 @@
 
 (define w-lst '(2 7 15 17 25 50))
 
-(define (div n)
-  (let* ((s-lst (for/list
-            ((i (in-range 4 (+ n 1))))
-            (format "~a" (modulo i 10))))
-         (s (apply string-append "// " s-lst)))
-    s))
-
 (define (test-doc w t d)
   (printfln "// ~a (w=~a)" t w)
   (writeln (DOC-to-string d))
-  (displayln (div w))
+  (displayln (width-divider w))
   (displayln (pretty w d))
   (displayln "// ----------"))
 

@@ -95,3 +95,10 @@
       (let ((car-var (car lst-var))
             (cdr-var (cdr lst-var)))
         body ...)))
+
+(define* (width-divider n)
+  (let* ((s-lst (for/list
+            ((i (in-range 4 (+ n 1))))
+            (format "~a" (modulo i 10))))
+         (s (apply string-append "// " s-lst)))
+    s))
