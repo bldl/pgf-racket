@@ -236,6 +236,9 @@
    (else (error "DOC-to-sexp: unexpected" doc))))
 
 (define* (DOC-to-string doc)
+  (define (concat? x)
+    (and (list? x) (not (null? x))
+         (eq? (car x) 'concat)))
   (cond
    ((string? doc) doc)
    ((NIL? doc) "")
@@ -244,7 +247,9 @@
           (r (DOC-to-string (CONCAT-rdoc doc))))
       (if (and (string? l) (string? r))
           (string-append l r)
-          `(concat ,l ,r))))
+          (let ((lc (if (concat? l) (cdr l) (list l)))
+                (rc (if (concat? r) (cdr r) (list r))))
+            `(concat ,@lc ,@rc)))))
    ((NEST? doc)
     (let ((lv (NEST-lv doc))
           (doc (DOC-to-string (NEST-doc doc))))

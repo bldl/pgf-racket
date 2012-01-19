@@ -83,7 +83,7 @@
 
 (define (test-doc w t d)
   (printfln "// ~a (w=~a)" t w)
-  (writeln (DOC-to-sexp d))
+  (writeln (DOC-to-string d))
   (displayln (div w))
   (displayln (pretty w d))
   (displayln "// ----------"))
