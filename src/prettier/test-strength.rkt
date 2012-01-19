@@ -72,12 +72,8 @@
                              (concat a sp b ln c sp d)
                              (concat a ln b ln c ln d))))
          )
-    (list (cons "full" (fillwords lorem-ipsum-paragraph))
+    (list ;;(cons "full" (fillwords lorem-ipsum-paragraph))
           ;;(cons "3/4" (fillwords* 3/4 lorem-ipsum-paragraph))
-          #;(cons "weird"
-                (nest 30
-                      (concat (line)
-                              (fillwords* 5/6 "x = y + z;"))))
           ;;(cons "group*" (apply group* (map/to-doc '(1 2 3 4 5))))
           ;;(cons "better" d-1)
           (cons "normal" (op/0 "+" (text "foo") (text "bar")
@@ -92,10 +88,17 @@
 
 (define w-lst '(2 7 15 17 25 50))
 
+(define (div n)
+  (let* ((s-lst (for/list
+            ((i (in-range 4 (+ n 1))))
+            (format "~a" (modulo i 10))))
+         (s (apply string-append "// " s-lst)))
+    s))
+
 (define (test-doc w t d)
   (printfln "// ~a (w=~a)" t w)
-  (newline)
-  ;;(writeln (DOC-to-sexp d)) (newline)
+  (printfln "// ~s" (DOC-to-sexp d))
+  (displayln (div w))
   (displayln (pretty w d))
   (displayln "// ----------"))
 
