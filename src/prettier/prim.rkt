@@ -224,8 +224,9 @@
                       (doc (DOC-to-sexp (NEST-doc doc))))
                   (cond
                    ((LvInc? lv) `(nest ,(LvInc-n lv) ,doc))
-                   ((LvStr? lv) `(nest ,(LvStr-s lv) ,doc))
+                   ((LvStr? lv) `(nest/str ,(LvStr-s lv) ,doc))
                    ((LvAbs? lv) `(nest/abs ,(LvAbs-n lv) ,doc))
+                   ((LvRel? lv) `(nest/rel ,(LvRel-n lv) ,doc))
                    (else (error "unexpected" lv)))))
    ((TEXT? doc) `(text ,(TEXT-s doc)))
    ((LINE? doc) `(line ,(LINE-s doc)))
