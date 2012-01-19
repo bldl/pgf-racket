@@ -31,20 +31,6 @@
 (define (cat/sep sep lst)
   (apply concat (add-between (filter identity lst) sep)))
 
-(define (partition/2 lst)
-  (let ((len (length lst)))
-    (let-values (((q r) (quotient/remainder len 2)))
-      (split-at lst (+ q r)))))
-
-(define group*
-  (case-lambda
-    (() (nil))
-    ((x) (flatten x))
-    (xs (let-values (((l r) (partition/2 xs)))
-          (private-union (flatten (stack xs))
-                         (stack (list (apply group* l)
-                                      (apply group* r))))))))
-
 (define (parens l x r)
   (concat (text "(") x (text ")")))
 
@@ -97,7 +83,7 @@
 
 (define (test-doc w t d)
   (printfln "// ~a (w=~a)" t w)
-  (printfln "// ~s" (DOC-to-sexp d))
+  (writeln (DOC-to-sexp d))
   (displayln (div w))
   (displayln (pretty w d))
   (displayln "// ----------"))

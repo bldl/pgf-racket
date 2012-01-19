@@ -3,7 +3,9 @@
 (require "prim.rkt")
 (require "util.rkt")
 
+;;; 
 ;;; Utility functions
+;;; 
 
 (define* (<+> x y)
   (concat x (text " ") y))
@@ -49,3 +51,22 @@
             (private-union
              (<+> (flatten x) (fill (flatten xs)))
              (</> x (fill xs)))))))
+
+;;; 
+;;; Extra utility functions
+;;; (Not in Wadler's paper.)
+;;; 
+
+(define (partition/2 lst)
+  (let ((len (length lst)))
+    (let-values (((q r) (quotient/remainder len 2)))
+      (split-at lst (+ q r)))))
+
+(define* group*
+  (case-lambda
+    (() (nil))
+    ((x) (flatten x))
+    (xs (let-values (((l r) (partition/2 xs)))
+          (private-union (flatten (stack xs))
+                         (stack (list (apply group* l)
+                                      (apply group* r))))))))
