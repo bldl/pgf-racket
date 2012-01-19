@@ -235,6 +235,32 @@
                          ,(DOC-to-sexp (UNION-rdoc doc))))
    (else (error "DOC-to-sexp: unexpected" doc))))
 
+(define* (DOC-to-string doc)
+  (cond
+   ((string? doc) doc)
+   ((NIL? doc) "")
+   ((CONCAT? doc)
+    (let ((l (DOC-to-string (CONCAT-ldoc doc)))
+          (r (DOC-to-string (CONCAT-rdoc doc))))
+      (if (and (string? l) (string? r))
+          (string-append l r)
+          `(concat ,l ,r))))
+   ((NEST? doc)
+    (let ((lv (NEST-lv doc))
+          (doc (DOC-to-string (NEST-doc doc))))
+      (cond
+       ((LvInc? lv) `(nest ,(LvInc-n lv) ,doc))
+       ((LvStr? lv) `(nest/str ,(LvStr-s lv) ,doc))
+       ((LvAbs? lv) `(nest/abs ,(LvAbs-n lv) ,doc))
+       ((LvRel? lv) `(nest/rel ,(LvRel-n lv) ,doc))
+       (else (error "unexpected" lv)))))
+   ((TEXT? doc) (TEXT-s doc))
+   ((LINE? doc) (string-append (LINE-s doc) "\n"))
+   ((UNION? doc) `(union ,(UNION-str doc)
+                         ,(DOC-to-string (UNION-ldoc doc))
+                         ,(DOC-to-string (UNION-rdoc doc))))
+   (else (error "DOC-to-string: unexpected" doc))))
+
 (define* (Doc-to-sexp doc)
   (cond
    ((Nil? doc) '(nil))
