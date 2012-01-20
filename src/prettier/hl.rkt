@@ -49,7 +49,7 @@
         (if (null? xs)
             x
             (private-union
-             (<+> (flatten x) (fill (flatten xs)))
+             (<+> (flatten x) (fill (cons (flatten (car xs)) (cdr xs))))
              (</> x (fill xs)))))))
 
 ;;; 
