@@ -66,11 +66,11 @@
 ;;; Pretty printing configuration
 ;;; 
 
-(define strong 1)
-(define weak 4/5)
+(define strong (make-parameter 1))
+(define weak (make-parameter 4/5))
 
 (define current-line (make-parameter (line)))
-(define current-strength (make-parameter strong))
+(define current-strength (make-parameter (strong)))
 
 ;; Choice construct. (Default strength.)
 (define (union l r)
@@ -78,11 +78,11 @@
 
 ;; Choice construct. (Strong, push all the way to margin.)
 (define (union/strong l r)
-  (private-union l r strong))
+  (private-union l r (strong)))
 
 ;; Choice construct. (Weak.)
 (define (union/weak l r)
-  (private-union l r weak))
+  (private-union l r (weak)))
 
 ;; Forced linebreak.
 (define (nl)
@@ -114,11 +114,11 @@
 
 (define-syntax-rule
   (weaken body ...)
-  (parameterize ((current-strength weak)) body ...))
+  (parameterize ((current-strength (weak))) body ...))
 
 (define-syntax-rule
   (strengthen body ...)
-  (parameterize ((current-strength strong)) body ...))
+  (parameterize ((current-strength (strong))) body ...))
 
 ;;; 
 ;;; Pretty printing utilities
@@ -234,9 +234,7 @@
                 (concat x sep y)) exprs))))
 
 (define (infix op)
-  (private-union
-   (text (format " ~a " op))
-   (concat (text (format " ~a" op)) (nl))))
+  (concat (sp/strong) (text op) (sp/weak)))
 
 (define (c-if-expr c t e ctx)
   (maybe-parens (eq? ctx 'inner)
@@ -256,19 +254,6 @@
 
 (define (c-expr-stmt expr)
   (concat expr (text ";")))
-
-;; Tries to put opening "{" on the same line as 'pre'.
-(define (indented-block/same pre body)
-  (private-union
-   (concat
-    (ind-cat
-     pre (text "{1")
-     (and body (concat (line) body)))
-    (line) (text "}1"))
-   (ind-cat
-    pre (text "{2")
-    (and body (concat (line) body (line)))
-    (text "}2"))))
 
 ;; Chooses formatting for the second block according to how the
 ;; formatting of the first block ends up fitting.
