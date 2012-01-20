@@ -5,29 +5,75 @@
 (require "util.rkt")
 
 ;;; 
-;;; C++ specific pretty printing
+;;; Pretty printing configuration
 ;;; 
 
-(define current-line (make-parameter (line)))
+(define strong 1)
+(define weak 4/5)
 
+(define current-line (make-parameter (line)))
+(define current-strength (make-parameter strong))
+
+;; Choice construct. (Default strength.)
+(define (union l r)
+  (private-union l r (current-strength)))
+
+;; Choice construct. (Strong, push all the way to margin.)
+(define (union/strong l r)
+  (private-union l r strong))
+
+;; Choice construct. (Weak.)
+(define (union/weak l r)
+  (private-union l r weak))
+
+;; Forced linebreak.
 (define (nl)
   (current-line))
 
-(define (sp)
-  (private-union (text " ") (current-line)))
+;; Non-breakable space.
+(define (nbsp)
+  (text " "))
 
+;; Breakable space.
+(define (sp)
+  (union (text " ") (current-line)))
+(define (sp/strong)
+  (union/strong (text " ") (current-line)))
+(define (sp/weak)
+  (union/weak (text " ") (current-line)))
+
+;; Breakable point.
 (define (br)
-  (private-union (nil) (current-line)))
+  (union (nil) (current-line)))
+(define (br/strong)
+  (union/strong (nil) (current-line)))
+(define (br/weak)
+  (union/weak (nil) (current-line)))
 
 (define-syntax-rule
   (in-cpp body ...)
   (parameterize ((current-line (line " \\"))) body ...))
+
+(define-syntax-rule
+  (weaken body ...)
+  (parameterize ((current-strength weak)) body ...))
+
+(define-syntax-rule
+  (strengthen body ...)
+  (parameterize ((current-strength strong)) body ...))
+
+;;; 
+;;; C++ specific pretty printing
+;;; 
 
 (define (ind doc)
   (nest 2 doc))
 
 (define (cat . lst)
   (apply concat (filter identity lst)))
+
+(define (cat/str . args)
+  (apply cat (map (lambda (x) (if (string? x) (text x) x)) args)))
 
 (define (parens doc)
   (concat (text "(") (br) doc (br) (text ")")))
@@ -194,7 +240,7 @@
   (concat (text "/** ") (align (fillwords s)) (text " */")))
 
 ;;; 
-;;; C++ test data generator
+;;; Randomness utils
 ;;; 
 
 (define (one-in-three?)
@@ -202,32 +248,6 @@
 
 (define (one-in-two?)
   (= (random 2) 0))
-
-(define-syntax-rule
-  (times/list n expr)
-  (for/list ((i (in-range n))) expr))
-
-(define-syntax-rule
-  (times/cat count elem-expr)
-  (apply cat (times/list count elem-expr)))
-
-(define-syntax-rule
-  (times/sep/cat count elem-expr sep-expr)
-  (let ((lst '()))
-    (let recur ((n count)
-                (last #f))
-      (when (> n 0)
-        (when last
-          (let ((sep sep-expr))
-            (when sep
-              (set! lst (cons sep lst)))))
-        (let ((elem elem-expr))
-          (when elem
-            (set! lst (cons elem lst)))
-          (recur (- n 1) elem))))
-    (if (null? lst)
-        (nil)
-        (apply concat (reverse lst)))))
 
 (define ascii-lst
   (for/list ((i (in-range 128)))
@@ -276,6 +296,36 @@
                    " "))))
     (string-set! s 0 (char-upcase (string-ref s 0)))
     (string-append s ".")))
+
+;;; 
+;;; C++ test data generator
+;;; 
+
+(define-syntax-rule
+  (times/list n expr)
+  (for/list ((i (in-range n))) expr))
+
+(define-syntax-rule
+  (times/cat count elem-expr)
+  (apply cat (times/list count elem-expr)))
+
+(define-syntax-rule
+  (times/sep/cat count elem-expr sep-expr)
+  (let ((lst '()))
+    (let recur ((n count)
+                (last #f))
+      (when (> n 0)
+        (when last
+          (let ((sep sep-expr))
+            (when sep
+              (set! lst (cons sep lst)))))
+        (let ((elem elem-expr))
+          (when elem
+            (set! lst (cons elem lst)))
+          (recur (- n 1) elem))))
+    (if (null? lst)
+        (nil)
+        (apply concat (reverse lst)))))
 
 (define (random-varname #:min (min 5)
                         #:max (max 10)
@@ -342,9 +392,6 @@
                                       (random-typename (+ depth 1) #:ref #t)
                                       (concat (text ",") (line)))))
             (bracket "<" args ">"))))))
-
-(define (cat/str . args)
-  (apply cat (map (lambda (x) (if (string? x) (text x) x)) args)))
 
 (define (random-cpp-expr (depth 1))
   (define (f/br s1 doc s2)
@@ -525,8 +572,9 @@
 
 (define (test-doc w t d)
   (printfln "// ~a (w=~a)" t w)
-  (newline)
-  ;;(writeln (DOC-to-sexp d)) (newline)
+  ;;(writeln (DOC-to-sexp d))
+  ;;(writeln (DOC-to-string d))
+  (displayln (width-divider w))
   (displayln (pretty w d))
   (displayln "// ----------"))
 
