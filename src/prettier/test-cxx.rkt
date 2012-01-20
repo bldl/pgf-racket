@@ -168,6 +168,9 @@
         (nil)
         (apply concat (reverse lst)))))
 
+(define (fill/weak lst)
+  (folddoc (lambda (x y) (concat x (sp/weak) y)) lst))
+
 ;;; 
 ;;; C++ specific pretty printing
 ;;; 
@@ -251,18 +254,12 @@
     (concat n (br) (text "(")
             (align (group x)) (text ")"))))
 
-(define (c-qual-type-inst/old n args)
-  (let* ((xs (add-between args (concat (text ",") (line))))
-         (x (apply concat xs)))
-    (concat n (br) (text "{")
-            (align (group x)) (text "}"))))
-
 (define (c-qual-type-inst n args)
   (let* ((xs (map/skip-last
               (lambda (x)
                 (concat x (text ",")))
               args))
-         (x (apply group* xs)))
+         (x (fill/weak xs)))
     (concat n (br) (text "{")
             (align x) (text "}"))))
 
