@@ -66,11 +66,17 @@
 ;;; Pretty printing configuration
 ;;; 
 
+;; Value to use for 'strong' UNIONs.
 (define strong (make-parameter 1))
+
+;; Value to use for 'weak' UNIONs.
 (define weak (make-parameter 4/5))
 
+;; Default line break.
 (define current-line (make-parameter (line)))
-(define current-strength (make-parameter (strong)))
+
+;; Default strength for UNIONs.
+(define current-strength (make-parameter strong))
 
 ;; Choice construct. (Default strength.)
 (define (union l r)
@@ -78,14 +84,14 @@
 
 ;; Choice construct. (Strong, push all the way to margin.)
 (define (union/strong l r)
-  (private-union l r (strong)))
+  (private-union l r strong))
 
 ;; Choice construct. (Weak.)
 (define (union/weak l r)
-  (private-union l r (weak)))
+  (private-union l r weak))
 
 ;; Forced linebreak.
-(define (nl)
+(define (ln)
   (current-line))
 
 ;; Non-breakable space.
@@ -114,11 +120,11 @@
 
 (define-syntax-rule
   (weaken body ...)
-  (parameterize ((current-strength (weak))) body ...))
+  (parameterize ((current-strength weak)) body ...))
 
 (define-syntax-rule
   (strengthen body ...)
-  (parameterize ((current-strength (strong))) body ...))
+  (parameterize ((current-strength strong)) body ...))
 
 ;;; 
 ;;; Pretty printing utilities
@@ -179,10 +185,10 @@
 
 (define (cpp-if c t (e #f))
    (cat
-    (in-cpp (concat (text "#if") (sp) c)) (nl)
-    t (nl)
-    (and e (concat (text "#else") (nl)
-                   e (nl)))
+    (in-cpp (concat (text "#if") (sp) c)) (ln)
+    t (ln)
+    (and e (concat (text "#else") (ln)
+                   e (ln)))
     (text "#endif")))
 
 (define (c-block doc)
@@ -225,16 +231,15 @@
       (concat (text "(") doc (text ")"))
       doc))
 
+(define (infix op)
+  (concat (sp/strong) (text op) (sp/weak)))
+
 (define (c-add-expr exprs ctx)
-  (let ((sep (private-union (text " + ")
-                            (concat (text " +") (nl)))))
+  (let ((sep (infix "+")))
     (maybe-parens
      (not (eq? ctx 'outer))
      (folddoc (lambda (x y)
                 (concat x sep y)) exprs))))
-
-(define (infix op)
-  (concat (sp/strong) (text op) (sp/weak)))
 
 (define (c-if-expr c t e ctx)
   (maybe-parens (eq? ctx 'inner)
@@ -246,11 +251,20 @@
     (concat n (br) (text "(")
             (align (group x)) (text ")"))))
 
-(define (c-qual-type-inst n args)
+(define (c-qual-type-inst/old n args)
   (let* ((xs (add-between args (concat (text ",") (line))))
          (x (apply concat xs)))
     (concat n (br) (text "{")
             (align (group x)) (text "}"))))
+
+(define (c-qual-type-inst n args)
+  (let* ((xs (map/skip-last
+              (lambda (x)
+                (concat x (text ",")))
+              args))
+         (x (apply group* xs)))
+    (concat n (br) (text "{")
+            (align x) (text "}"))))
 
 (define (c-expr-stmt expr)
   (concat expr (text ";")))
@@ -533,6 +547,7 @@
          ;;(cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
+     ;;(cons "type instantiation" (c-qual-type-inst (text "T") (list (text "1") (text "2") (text "3") (text "4"))))
      ;;(cons "function declaration" (random-func 'tl))
      ;;(cons "line comment" (c-line-comment "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. Sed sit amet ipsum mauris. Maecenas congue ligula ac quam viverra nec consectetur ante hendrerit."))
      ;;(cons "block comment" (c-block-comment "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. Sed sit amet ipsum mauris. Maecenas congue ligula ac quam viverra nec consectetur ante hendrerit."))
@@ -559,17 +574,20 @@
 ;;; Test runner
 ;;; 
 
-(define (test-doc w t d)
-  (printfln "// ~a (w=~a)" t w)
+(define (test-doc w t d weak?)
+  (printfln "// ~a (w=~a) ~a" t w (if weak? "weak" "strong"))
   ;;(writeln (DOC-to-sexp d))
   ;;(writeln (DOC-to-string d))
   (displayln (width-divider w))
-  (displayln (pretty w d))
+  (parameterize ((weak (if weak? 4/5 1)))
+    (displayln (pretty w d)))
   (displayln "// ----------"))
 
 (define (main)
+  (displayln "// -*- c++ -*-")
   (for* ((w (reverse w-lst))
-         (d d-lst))
-        (test-doc w (car d) (cdr d))))
+         (d d-lst)
+         (weak? '(#f #t)))
+        (test-doc w (car d) (cdr d) weak?)))
       
 (main)

@@ -96,6 +96,13 @@
             (cdr-var (cdr lst-var)))
         body ...)))
 
+;; Applies 'f' to all but the last member of 'lst'.
+(define* (map/skip-last f lst)
+  (cond
+   ((null? lst) lst)
+   ((null? (cdr lst)) lst)
+   (else (cons (f (car lst)) (map/skip-last f (cdr lst))))))
+
 (define* (width-divider n)
   (let* ((s-lst (for/list
             ((i (in-range 4 (+ n 1))))
