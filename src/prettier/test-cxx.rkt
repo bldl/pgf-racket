@@ -5,6 +5,64 @@
 (require "util.rkt")
 
 ;;; 
+;;; Randomness utils
+;;; 
+
+(define (one-in-three?)
+  (= (random 3) 0))
+
+(define (one-in-two?)
+  (= (random 2) 0))
+
+(define ascii-lst
+  (for/list ((i (in-range 128)))
+            (integer->char i)))
+(define lower-lst (filter char-lower-case? ascii-lst))
+(define upper-lst (filter char-upper-case? ascii-lst))
+(define alpha-lst (append lower-lst upper-lst))
+(define underscore #\_)
+
+(define (vowel? c)
+  (memv c (list #\a #\e #\i #\o #\u #\y
+                #\A #\E #\I #\O #\U #\Y)))
+(define (underscore? c)
+  (eqv? c underscore))
+(define (vowel/us? c)
+  (or (vowel? c) (underscore? c)))
+
+(define (random/from-list lst)
+  (list-ref lst (random (length lst))))
+
+(define (random/from-range a b)
+  (+ a (random (- b a))))
+
+(define (random-string n lst)
+  (apply string (for/list ((i (in-range n))) (random/from-list lst))))
+
+(define (random-string/readable n alphabet #:capitalize? (cap #f))
+  (let next ((n n) (lst '()) (was? #t))
+    (if (> n 0)
+        (let* ((c (random/from-list alphabet))
+               (v (vowel/us? c))
+               (ok (or v was?)))
+          (if ok
+              (let ((c (if (and cap (null? lst)) (char-upcase c) c)))
+                (next (- n 1) (cons c lst) v))
+              (next n lst was?)))
+        (apply string (reverse lst)))))
+
+(define (random-sentence)
+  (let ((s (apply string-append
+                  (add-between
+                   (times/list (+ 3 (random 100))
+                               (random-string/readable
+                                (random/from-range 3 10)
+                                lower-lst))
+                   " "))))
+    (string-set! s 0 (char-upcase (string-ref s 0)))
+    (string-append s ".")))
+
+;;; 
 ;;; Pretty printing configuration
 ;;; 
 
@@ -63,7 +121,7 @@
   (parameterize ((current-strength strong)) body ...))
 
 ;;; 
-;;; C++ specific pretty printing
+;;; Pretty printing utilities
 ;;; 
 
 (define (ind doc)
@@ -75,13 +133,43 @@
 (define (cat/str . args)
   (apply cat (map (lambda (x) (if (string? x) (text x) x)) args)))
 
+(define (ind-cat . args)
+  (ind (apply cat args)))
+
+(define-syntax-rule
+  (times/list n expr)
+  (for/list ((i (in-range n))) expr))
+
+(define-syntax-rule
+  (times/cat count elem-expr)
+  (apply cat (times/list count elem-expr)))
+
+(define-syntax-rule
+  (times/sep/cat count elem-expr sep-expr)
+  (let ((lst '()))
+    (let recur ((n count)
+                (last #f))
+      (when (> n 0)
+        (when last
+          (let ((sep sep-expr))
+            (when sep
+              (set! lst (cons sep lst)))))
+        (let ((elem elem-expr))
+          (when elem
+            (set! lst (cons elem lst)))
+          (recur (- n 1) elem))))
+    (if (null? lst)
+        (nil)
+        (apply concat (reverse lst)))))
+
+;;; 
+;;; C++ specific pretty printing
+;;; 
+
 (define (parens doc)
   (concat (text "(") (br) doc (br) (text ")")))
 
 (define (semi) (text ";"))
-
-(define (ind-cat . args)
-  (ind (apply cat args)))
 
 (define (bracket/br l x r)
   (group (concat (text l)
@@ -240,92 +328,8 @@
   (concat (text "/** ") (align (fillwords s)) (text " */")))
 
 ;;; 
-;;; Randomness utils
-;;; 
-
-(define (one-in-three?)
-  (= (random 3) 0))
-
-(define (one-in-two?)
-  (= (random 2) 0))
-
-(define ascii-lst
-  (for/list ((i (in-range 128)))
-            (integer->char i)))
-(define lower-lst (filter char-lower-case? ascii-lst))
-(define upper-lst (filter char-upper-case? ascii-lst))
-(define alpha-lst (append lower-lst upper-lst))
-(define underscore #\_)
-
-(define (vowel? c)
-  (memv c (list #\a #\e #\i #\o #\u #\y
-                #\A #\E #\I #\O #\U #\Y)))
-(define (underscore? c)
-  (eqv? c underscore))
-(define (vowel/us? c)
-  (or (vowel? c) (underscore? c)))
-
-(define (random/from-list lst)
-  (list-ref lst (random (length lst))))
-
-(define (random/from-range a b)
-  (+ a (random (- b a))))
-
-(define (random-string n lst)
-  (apply string (for/list ((i (in-range n))) (random/from-list lst))))
-
-(define (random-string/readable n alphabet #:capitalize? (cap #f))
-  (let next ((n n) (lst '()) (was? #t))
-    (if (> n 0)
-        (let* ((c (random/from-list alphabet))
-               (v (vowel/us? c))
-               (ok (or v was?)))
-          (if ok
-              (let ((c (if (and cap (null? lst)) (char-upcase c) c)))
-                (next (- n 1) (cons c lst) v))
-              (next n lst was?)))
-        (apply string (reverse lst)))))
-
-(define (random-sentence)
-  (let ((s (apply string-append
-                  (add-between
-                   (times/list (+ 3 (random 100))
-                               (random-string/readable
-                                (random/from-range 3 10)
-                                lower-lst))
-                   " "))))
-    (string-set! s 0 (char-upcase (string-ref s 0)))
-    (string-append s ".")))
-
-;;; 
 ;;; C++ test data generator
 ;;; 
-
-(define-syntax-rule
-  (times/list n expr)
-  (for/list ((i (in-range n))) expr))
-
-(define-syntax-rule
-  (times/cat count elem-expr)
-  (apply cat (times/list count elem-expr)))
-
-(define-syntax-rule
-  (times/sep/cat count elem-expr sep-expr)
-  (let ((lst '()))
-    (let recur ((n count)
-                (last #f))
-      (when (> n 0)
-        (when last
-          (let ((sep sep-expr))
-            (when sep
-              (set! lst (cons sep lst)))))
-        (let ((elem elem-expr))
-          (when elem
-            (set! lst (cons elem lst)))
-          (recur (- n 1) elem))))
-    (if (null? lst)
-        (nil)
-        (apply concat (reverse lst)))))
 
 (define (random-varname #:min (min 5)
                         #:max (max 10)
