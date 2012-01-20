@@ -24,6 +24,10 @@
 (provide (rename-out (NIL nil)))
 (provide (rename-out (TEXT text)))
 
+(define (UNION-str/val d)
+  (let ((v (UNION-str d)))
+    (if (procedure? v) (v) v)))
+
 (define* (nest n doc)
   (NEST (LvInc n) doc))
 
@@ -177,7 +181,7 @@
                 ;; In Wadler's algorithm the first argument of 'fits'
                 ;; is computed as (- w k). This implementation takes a
                 ;; fraction of available page width.
-                (if (fits (- (* w (UNION-str d)) k) (St-doc l-st))
+                (if (fits (- (* w (UNION-str/val d)) k) (St-doc l-st))
                     ;; Here, too, we return control, with the
                     ;; assumption that either a line break or the end
                     ;; of document has been encountered within the
@@ -230,7 +234,7 @@
                    (else (error "unexpected" lv)))))
    ((TEXT? doc) `(text ,(TEXT-s doc)))
    ((LINE? doc) `(line ,(LINE-s doc)))
-   ((UNION? doc) `(union ,(UNION-str doc)
+   ((UNION? doc) `(union ,(UNION-str/val doc)
                          ,(DOC-to-sexp (UNION-ldoc doc))
                          ,(DOC-to-sexp (UNION-rdoc doc))))
    (else (error "DOC-to-sexp: unexpected" doc))))
@@ -261,7 +265,7 @@
        (else (error "unexpected" lv)))))
    ((TEXT? doc) (TEXT-s doc))
    ((LINE? doc) (string-append (LINE-s doc) "\n"))
-   ((UNION? doc) `(union ,(UNION-str doc)
+   ((UNION? doc) `(union ,(UNION-str/val doc)
                          ,(DOC-to-string (UNION-ldoc doc))
                          ,(DOC-to-string (UNION-rdoc doc))))
    (else (error "DOC-to-string: unexpected" doc))))
