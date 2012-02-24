@@ -194,7 +194,7 @@
              (else (error "be: unexpected" d))))))))
 
 ;; w:: remaining width (integer)
-;; d:: formatted document whose first line to try fitting (St)
+;; d:: formatted document whose first line to try fitting (Doc)
 ;; Returns:: whether fits (boolean)
 (define (fits w d)
   (let recur ((w w)
