@@ -84,6 +84,29 @@ supposed to produce either.
                    (Txt "Italic above.")))
         )))
 
-
-
-
+;; The document produced by this is already rather huge, thanks to
+;; 'fill'. Considering that the performance is still surprisingly
+;; good.
+(define* xml-doc-3
+  (Elt "p"
+       (list (Att "color" "red") (Att "font" "Times") (Att "size" "10"))
+       (list
+        (Txt "Here is something:")
+        (Elt "em" '()
+             (list (Txt "These are together.")
+                   (Txt "These are also so.")))
+        (Elt "em" '()
+             (list (Txt "Italic below.")
+                   (Elt "i" '() (list (Txt "This is.")))
+                   (Txt "Italic above.")))
+        (Txt "Here is more of the same:")
+        (Elt "em" '()
+             (list (Txt "These are together.")
+                   (Txt "These are also so.")
+                   (Elt "b" (list (Att "class" "myClass"))
+                        (list (Txt "This is bold.")))))
+        (Elt "em" '()
+             (list (Txt "Italic below.")
+                   (Elt "i" '() (list (Txt "This is.")))
+                   (Txt "Italic above.")))
+        )))

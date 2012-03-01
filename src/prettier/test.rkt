@@ -18,6 +18,7 @@
        (d (list
            (showXML xml-doc-1)
            (showXML xml-doc-2)
+           (showXML xml-doc-3)
            (text "foo")
            (text "foobar")
            (<+> (text "foo") (text "bar"))
