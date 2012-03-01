@@ -16,7 +16,8 @@
 
 (for* ((w w-lst)
        (d (list
-           (showXML xml-doc)
+           (showXML xml-doc-1)
+           (showXML xml-doc-2)
            (text "foo")
            (text "foobar")
            (<+> (text "foo") (text "bar"))

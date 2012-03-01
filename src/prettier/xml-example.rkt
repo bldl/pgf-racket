@@ -23,20 +23,16 @@ supposed to produce either.
 
 ;; Xml -> DOC
 (define* (showXML x)
-  (folddoc concat (showXMLs x)))
-
-;; Xml -> list[DOC]
-(define (showXMLs x)
   (match
    x
    ((Elt n a c)
     (if (null? c)
-        (list (concat (text "<") (showTag n a) (text "/>")))
-        (list (concat (text "<") (showTag n a) (text ">")
-                      (showFill showXML c)
-                      (text "</") (text n) (text ">")))))
+        (concat (text "<") (showTag n a) (text "/>"))
+        (concat (text "<") (showTag n a) (text ">")
+                (showFill showXML c)
+                (text "</") (text n) (text ">"))))
    ((Txt s)
-    (list (fillwords s)))
+    (fillwords s))
    (_
     (error "showXMLs: unexpected" x))))
 
@@ -61,7 +57,7 @@ supposed to produce either.
       (bracket "" (fill (map f xs)) "")))
 
 ;; Xml
-(define* xml-doc
+(define* xml-doc-1
   (Elt "p"
        (list (Att "color" "red") (Att "font" "Times") (Att "size" "10"))
        (list
@@ -73,4 +69,21 @@ supposed to produce either.
              (list (Att "href" "http://www.eg.com/"))
              (list (Txt "link")))
         (Txt "elsewhere."))))
+
+(define* xml-doc-2
+  (Elt "p"
+       (list (Att "color" "red") (Att "font" "Times") (Att "size" "10"))
+       (list
+        (Txt "Here is something:")
+        (Elt "em" '()
+             (list (Txt "These are together.")
+                   (Txt "These are also so.")))
+        (Elt "em" '()
+             (list (Txt "Italic below.")
+                   (Elt "i" '() (list (Txt "This is.")))
+                   (Txt "Italic above.")))
+        )))
+
+
+
 
