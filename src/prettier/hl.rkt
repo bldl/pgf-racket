@@ -41,6 +41,8 @@
 (define* (fillwords s)
   (folddoc <+/> (map text (words s))))
 
+;; This function easily leads to a combinatorial explosion, and hence
+;; we implement using lazy evaluation internally.
 (define* (fill lst)
   (if (null? lst)
       (nil)
@@ -48,7 +50,7 @@
             (xs (cdr lst)))
         (if (null? xs)
             x
-            (private-union
+            (private-union/lazy
              (<+> (flatten x) (fill (cons (flatten (car xs)) (cdr xs))))
              (</> x (fill xs)))))))
 

@@ -76,7 +76,13 @@
 (define* (private-union l r (str 1))
   (UNION l r str))
 
-(define* (group x) (private-union (flatten x) x))
+(define-syntax-rule*
+  (private-union/lazy lexp rexp)
+  (LAZY (thunk (private-union (LAZY (thunk lexp))
+                              (LAZY (thunk rexp))))))
+
+(define* (group x)
+  (private-union (flatten x) x))
 
 (define* (flatten d)
   (when (LAZY? d) (set! d (FORCE! d)))
