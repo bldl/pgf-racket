@@ -109,3 +109,17 @@
             (format "~a" (modulo i 10))))
          (s (apply string-append "// " s-lst)))
     s))
+
+(define-syntax-rule*
+  (while cond action ...)
+  (let continue ()
+      (when cond
+        action ...
+        (continue))))
+
+(define-syntax-rule*
+  (loop break action ...)
+  (let/ec break
+    (let continue ()
+      action ...
+      (continue))))

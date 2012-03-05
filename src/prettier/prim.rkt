@@ -124,12 +124,13 @@
 ;; x:: remaining document (DOC)
 ;; Returns:: formatted document (Doc)
 (define* (best w k x)
-  ;; Consume input until fully consumed.
-  (let recur ((st (St (Nil) k (list (Be "" x)))))
-    (let ((st (be w st)))
-      (if (null? (St-lst st))
-          (St-doc st)
-          (recur st)))))
+  ;; Consume input until fully consumed. Note this highly traditional
+  ;; imperative implementation.
+  (let ((st (St (Nil) k (list (Be 0 x)))))
+    (loop return
+          (set! st (be w st))
+          (when (null? (St-lst st))
+            (return (St-doc st))))))
 
 ;; w:: page width (integer)
 ;; st:: state before choices (St)
