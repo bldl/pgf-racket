@@ -16,11 +16,11 @@
 
 (for* ((w w-lst)
        (d (list
-           (fill (list (text "fill") (text "you") (text "this")))
-           (susp (thunk (text "suspended")))
            (showXML xml-doc-1)
            (showXML xml-doc-2)
            (showXML xml-doc-3)
+           (fill (list (text "fill") (text "you") (text "this")))
+           (susp (thunk (text "suspended")))
            (text "foo")
            (text "foobar")
            (<+> (text "foo") (text "bar"))
@@ -37,7 +37,8 @@
            (nest/str "...." (concat (text "foo") (line) (text "bar") (nest/abs 1 (concat (line) (text "::") (nest/rel -1 (concat (line) (text "aligned"))))) (line) (text "foobar")))
            (nest/str "...." (concat (text "foo") (line) (text "bar") (nest/abs 1 (concat (line) (text "::") (nest/rel 1 (concat (line) (text "aligned"))))) (line) (text "foobar")))
            )))
-      (printfln "~a (w=~a)" d w)
+      (printfln "~s (w=~a)" (DOC-to-string d) w)
+      ;;(pretty-println (DOC-to-string d))
       (newline)
       (displayln (pretty w d))
       (newline))

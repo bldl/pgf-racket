@@ -84,9 +84,9 @@ supposed to produce either.
                    (Txt "Italic above.")))
         )))
 
-;; The document produced by this is already rather huge, thanks to
-;; 'fill'. Considering that the performance is still surprisingly
-;; good.
+;; The document produced by this is huge with an eager implementation
+;; of 'fill'. Considering that the performance of Racket is
+;; surprisingly good.
 (define* xml-doc-3
   (Elt "p"
        (list (Att "color" "red") (Att "font" "Times") (Att "size" "10"))
