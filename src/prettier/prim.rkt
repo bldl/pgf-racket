@@ -126,7 +126,7 @@
 (define* (best w k x)
   ;; Consume input until fully consumed. Note this highly traditional
   ;; imperative implementation.
-  (let ((st (St (Nil) k (list (Be 0 x)))))
+  (let ((st (St (Nil) k (list (Be "" x)))))
     (loop return
           (set! st (be w st))
           (when (null? (St-lst st))
