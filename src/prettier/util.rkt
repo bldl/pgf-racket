@@ -123,3 +123,9 @@
     (let continue ()
       action ...
       (continue))))
+
+(define-syntax* aif
+  (syntax-rules ()
+    ((_ n c t e)
+     (let ((n c))
+       (if n t e)))))

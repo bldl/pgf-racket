@@ -16,6 +16,7 @@
 
 (for* ((w w-lst)
        (d (list
+           (susp (thunk (text "suspended")))
            (showXML xml-doc-1)
            (showXML xml-doc-2)
            (showXML xml-doc-3)

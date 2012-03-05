@@ -21,8 +21,26 @@
            (Line s) ;; string -> Doc
            (Concat ldoc rdoc))) ;; Doc, Doc -> Doc
 
+;; f:: function to compute document (-> DOC)
+;; doc:: cached non-LAZY document (DOC)
+(struct LAZY DOC (f (doc #:mutable #:auto)) #:transparent)
+
+;; x:: document (DOC)
+;; Returns:: non-LAZY document (DOC)
+(define (FORCE! x)
+  (if (not (LAZY? x))
+      x
+      (aif d (LAZY-doc x)
+           d
+           (let ((d ((LAZY-f x))))
+             (when (LAZY? d)
+               (set! d (FORCE! d)))
+             (set-LAZY-doc! x d)
+             d))))
+
 (provide (rename-out (NIL nil)))
 (provide (rename-out (TEXT text)))
+(provide (rename-out (LAZY susp)))
 
 (define (UNION-str/val d)
   (let ((v (UNION-str d)))
@@ -61,6 +79,7 @@
 (define* (group x) (private-union (flatten x) x))
 
 (define* (flatten d)
+  (when (LAZY? d) (set! d (FORCE! d)))
   (cond
    ((NIL? d) d)
    ((CONCAT? d) (CONCAT (flatten (CONCAT-ldoc d))
@@ -150,6 +169,7 @@
                  (i (Be-i h))
                  (d (Be-doc h))
                  (z (cdr lst)))
+            (when (LAZY? d) (set! d (FORCE! d)))
             (cond
              ((NIL? d)
               (recur (St fd k z)))
@@ -222,6 +242,7 @@
 
 (define* (DOC-to-sexp doc)
   (cond
+   ((LAZY? doc) `(susp ,(aif x (LAZY-doc doc) (DOC-to-sexp x) #f)))
    ((NIL? doc) '(nil))
    ((CONCAT? doc) `(concat ,(DOC-to-sexp (CONCAT-ldoc doc))
                            ,(DOC-to-sexp (CONCAT-rdoc doc))))
@@ -246,6 +267,7 @@
          (eq? (car x) 'concat)))
   (cond
    ((string? doc) doc)
+   ((LAZY? doc) (aif x (LAZY-doc doc) (DOC-to-string x) '(susp)))
    ((NIL? doc) "")
    ((CONCAT? doc)
     (let ((l (DOC-to-string (CONCAT-ldoc doc)))
