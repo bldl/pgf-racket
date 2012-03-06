@@ -33,8 +33,8 @@
 (define* (<+/> x y)
   (concat x (private-union (text " ") (line)) y))
 
-(define* (fillwords s)
-  (folddoc <+/> (map text/fun (words s))))
+(define* fillwords
+  (compose (fix folddoc <+/>) (fix map text/fun) words))
 
 (define* (fill lst)
   (if (null? lst)
