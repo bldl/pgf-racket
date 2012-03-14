@@ -187,6 +187,10 @@
                          (cons (Be (margin k i (NEST-lv d))
                                    (NEST-doc d)) z))))
              ((TEXT? d)
+              ;; This is not as lazy as the Haskell version, which I
+              ;; believe notices immediately if the length of a text
+              ;; exceeds available width. To allow for that we'd need
+              ;; to restructure further.
               (let ((s (TEXT-s d)))
                 (recur (St (Concat fd (Text s))
                            (+ k (string-length s))
