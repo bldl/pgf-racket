@@ -149,26 +149,21 @@
 ;; x:: remaining document (DOC)
 ;; Returns:: formatted document (Doc)
 (define* (best w k x)
-  ;; Consume input until fully consumed. Note this highly traditional
-  ;; imperative implementation.
   (let ((st (St (Nil) k (list (Be "" x)))))
     (loop return
-          (set! st (be w st))
+          (let-values (((cont? n-st) (be w st)))
+            (set! st n-st))
           (when (null? (St-lst st))
             (return (St-doc st))))))
 
 ;; w:: page width (integer)
 ;; st:: state before choices (St)
-;; Returns:: state after choices (St)
+;; Returns:: whether should continue, state after choices (boolean, St)
 (define (be w st)
-  ;; It would be more idiomatic to Scheme to use recursion here, but
-  ;; we're instead using a loop as we don't want to rely on tail
-  ;; recursion. Scheme has it, but this is to make porting easier to
-  ;; languages that lack TCO.
   (let recur ((st st))
     (let ((lst (St-lst st)))
       (if (null? lst)
-          st
+          (values #f st)
           (let* ((k (St-k st))
                  (fd (St-doc st))
                  (h (car lst))
@@ -187,61 +182,51 @@
                          (cons (Be (margin k i (NEST-lv d))
                                    (NEST-doc d)) z))))
              ((TEXT? d)
-              ;; This is not as lazy as the Haskell version, which I
-              ;; believe notices immediately if the length of a text
-              ;; exceeds available width. To allow for that we'd need
-              ;; to restructure further.
-              (let ((s (TEXT-s d)))
-                (recur (St (Concat fd (Text s))
-                           (+ k (string-length s))
-                           z))))
+              ;; The Haskell version (I believe) notices immediately
+              ;; if the length of a text exceeds available width. We
+              ;; must make the same happen here. Typically text
+              ;; consumes available width, meaning that there's a
+              ;; possibility of running out.
+              (let* ((s (TEXT-s d))
+                     (l (string-length s)))
+                (values #t (St (Concat fd (Text s)) (+ k l) z))))
              ((LINE? d)
               ;; Note that we do not 'recur' further here. Rather we
               ;; return control to the caller. Here we lack the
               ;; context to know whether to proceed further or not.
-              (St (Concat fd (Concat (Text (LINE-s d)) (Line i)))
-                  (string-length i) z))
+              (values #f
+                      (St (Concat fd (Concat (Text (LINE-s d)) (Line i)))
+                          (string-length i) z)))
              ((UNION? d)
-              ;; Note that here we call 'be' rather than invoking
-              ;; 'recur', as 'recur' doesn't "return", it just
-              ;; transfers control to the 'let'. Note, too, that we
-              ;; start with a fresh empty document to make it possible
-              ;; to compute its length easily.
-              (let ((l-st (be w (St (Nil) k 
-                                    (cons (Be i (UNION-ldoc d)) z)))))
-                ;; In Wadler's algorithm the first argument of 'fits'
-                ;; is computed as (- w k). This implementation takes a
-                ;; fraction of available page width.
-                (if (fits (- (* w (UNION-str/val d)) k) (St-doc l-st))
-                    ;; Here, too, we return control, with the
-                    ;; assumption that either a line break or the end
-                    ;; of document has been encountered within the
-                    ;; UNION.
-                    (St (Concat fd (St-doc l-st))
-                        (St-k l-st) (St-lst l-st))
+              ;; Note that we call 'be' rather than invoking 'recur'
+              ;; for inspecting the left choice, as 'recur' doesn't
+              ;; "return", it just transfers control to the 'let'.
+              ;; Note, too, that we start with a fresh empty document
+              ;; to make it possible to compute its length easily.
+              (let again ((l-st (St (Nil) k 
+                                    (cons (Be i (UNION-ldoc d)) z))))
+                (let-values (((cont? l-st) (be w l-st)))
+                  ;; In Wadler's algorithm the first argument of
+                  ;; 'fits' is computed as (- w k). This
+                  ;; implementation takes a fraction of available page
+                  ;; width. We also do not have a separate 'fits', but
+                  ;; rather we keep track of the column as we keep
+                  ;; adding text so that we know immediately when we
+                  ;; run out of space.
+                  (cond
+                   ((> (St-k l-st) (* w (UNION-str/val d)))
                     ;; Left did not fit, we commit to right regardless
                     ;; of whether it fits.
-                    (recur (St fd k (cons (Be i (UNION-rdoc d)) z))))))
+                    (recur (St fd k (cons (Be i (UNION-rdoc d)) z))))
+                   ;; Fitting so far, but there's more.
+                   (cont? (again l-st))
+                   ;; This left choice fits completely. Here, too, we
+                   ;; return control, with the assumption that either
+                   ;; a line break or the end of document has been
+                   ;; encountered within the UNION.
+                   (else (values #f (St (Concat fd (St-doc l-st))
+                                        (St-k l-st) (St-lst l-st))))))))
              (else (error "be: unexpected" d))))))))
-
-;; w:: remaining width (integer)
-;; d:: formatted document whose first line to try fitting (Doc)
-;; Returns:: whether fits (boolean)
-(define (fits w d)
-  (let recur ((w w)
-              (lst (list d)))
-    (cond
-     ((< w 0) #f)
-     ((null? lst) #t)
-     (else
-      (let ((d (car lst)))
-        (cond
-         ((Nil? d) (recur w (cdr lst)))
-         ((Text? d) (recur (- w (string-length (Text-s d))) (cdr lst)))
-         ((Line? d) #t)
-         ((Concat? d) (recur w (cons (Concat-ldoc d)
-                                     (cons (Concat-rdoc d) (cdr lst)))))
-         (else (error "fits: unexpected" d))))))))
 
 (define* (pretty w d)
   (layout (best w 0 d)))
