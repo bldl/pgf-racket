@@ -228,6 +228,25 @@
                                         (St-k l-st) (St-lst l-st))))))))
              (else (error "be: unexpected" d))))))))
 
+;; rw:: remaining width (integer)
+;; d:: formatted document whose first line to try fitting (Doc)
+;; Returns:: whether fits (boolean)
+(define (fits rw d)
+  (let recur ((w rw)
+              (lst (list d)))
+    (cond
+     ((< w 0) #f)
+     ((null? lst) #t)
+     (else
+      (let ((d (car lst)))
+        (cond
+         ((Nil? d) (recur w (cdr lst)))
+         ((Text? d) (recur (- w (string-length (Text-s d))) (cdr lst)))
+         ((Line? d) #t)
+         ((Concat? d) (recur w (cons (Concat-ldoc d)
+                                     (cons (Concat-rdoc d) (cdr lst)))))
+         (else (error "fits: unexpected" d))))))))
+
 (define* (pretty w d)
   (layout (best w 0 d)))
 
