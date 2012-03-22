@@ -156,6 +156,10 @@
           (when (null? (St-lst st))
             (return (St-doc st))))))
 
+;; Formats input until reaches end-of-input or end-of-line. May return
+;; earlier, but only with a #t return value. Otherwise the first
+;; return value is #f.
+;;
 ;; w:: page width (integer)
 ;; st:: state before choices (St)
 ;; Returns:: whether should continue, state after choices (boolean, St)
@@ -198,12 +202,8 @@
                       (St (Concat fd (Concat (Text (LINE-s d)) (Line i)))
                           (string-length i) z)))
              ((UNION? d)
-              ;; Note that we call 'be' rather than invoking 'recur'
-              ;; for inspecting the left choice, as 'recur' doesn't
-              ;; "return", it just transfers control to the 'let'.
-              ;; Note, too, that we start with a fresh empty document
-              ;; to make it possible to compute its length easily.
-              (let again ((l-st (St (Nil) k 
+              ;; We use recursion to explore the left choice.
+              (let again ((l-st (St fd k 
                                     (cons (Be i (UNION-ldoc d)) z))))
                 (let-values (((cont? l-st) (be w l-st)))
                   ;; In Wadler's algorithm the first argument of
@@ -215,17 +215,14 @@
                   ;; run out of space.
                   (cond
                    ((> (St-k l-st) (* w (UNION-str/val d)))
-                    ;; Left did not fit, we commit to right regardless
-                    ;; of whether it fits.
+                    ;; Left did not fit, so we discard it and
+                    ;; continue. We've yet to get any more formatted
+                    ;; document.
                     (recur (St fd k (cons (Be i (UNION-rdoc d)) z))))
                    ;; Fitting so far, but there's more.
                    (cont? (again l-st))
-                   ;; This left choice fits completely. Here, too, we
-                   ;; return control, with the assumption that either
-                   ;; a line break or the end of document has been
-                   ;; encountered within the UNION.
-                   (else (values #f (St (Concat fd (St-doc l-st))
-                                        (St-k l-st) (St-lst l-st))))))))
+                   ;; This left choice fits completely.
+                   (else (values #f l-st))))))
              (else (error "be: unexpected" d))))))))
 
 ;; rw:: remaining width (integer)
