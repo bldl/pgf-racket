@@ -149,12 +149,13 @@
 ;; x:: remaining document (DOC)
 ;; Returns:: formatted document (Doc)
 (define (best w k x)
-  (let ((st (St (Nil) k (list (Be "" x)))))
-    (loop return
-          (let-values (((dummy n-st) (be w st)))
-            (set! st n-st))
-          (when (null? (St-lst st))
-            (return (St-doc st))))))
+  ;; In Racket we get faster code by avoiding the use of 'set!',
+  ;; although this is not as Racketish.
+  (let next ((st (St (Nil) k (list (Be "" x)))))
+    (let-values (((dummy st) (be w st)))
+      (if (null? (St-lst st))
+          (St-doc st)
+          (next st)))))
 
 ;; Formats input until reaches end-of-input or end-of-line. May return
 ;; earlier, to give the caller the chance to prune a choice that
