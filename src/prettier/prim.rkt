@@ -148,26 +148,26 @@
 ;; k:: current column (integer)
 ;; x:: remaining document (DOC)
 ;; Returns:: formatted document (Doc)
-(define* (best w k x)
+(define (best w k x)
   (let ((st (St (Nil) k (list (Be "" x)))))
     (loop return
-          (let-values (((cont? n-st) (be w st)))
+          (let-values (((dummy n-st) (be w st)))
             (set! st n-st))
           (when (null? (St-lst st))
             (return (St-doc st))))))
 
 ;; Formats input until reaches end-of-input or end-of-line. May return
-;; earlier, but only with a #t return value. Otherwise the first
-;; return value is #f.
+;; earlier, to give the caller the chance to prune a choice that
+;; doesn't fit; only in this case is the first return value false.
 ;;
 ;; w:: page width (integer)
 ;; st:: state before choices (St)
-;; Returns:: whether should continue, state after choices (boolean, St)
+;; Returns:: return reason, state after choices (any, St)
 (define (be w st)
   (let recur ((st st))
     (let ((lst (St-lst st)))
       (if (null? lst)
-          (values #f st)
+          (values 'eof st)
           (let* ((k (St-k st))
                  (fd (St-doc st))
                  (h (car lst))
@@ -193,19 +193,19 @@
               ;; possibility of running out.
               (let* ((s (TEXT-s d))
                      (l (string-length s)))
-                (values #t (St (Concat fd (Text s)) (+ k l) z))))
+                (values #f (St (Concat fd (Text s)) (+ k l) z))))
              ((LINE? d)
               ;; Note that we do not 'recur' further here. Rather we
               ;; return control to the caller. Here we lack the
               ;; context to know whether to proceed further or not.
-              (values #f
+              (values 'eol
                       (St (Concat fd (Concat (Text (LINE-s d)) (Line i)))
                           (string-length i) z)))
              ((UNION? d)
               ;; We use recursion to explore the left choice.
               (let again ((l-st (St fd k 
                                     (cons (Be i (UNION-ldoc d)) z))))
-                (let-values (((cont? l-st) (be w l-st)))
+                (let-values (((complete? l-st) (be w l-st)))
                   ;; In Wadler's algorithm the first argument of
                   ;; 'fits' is computed as (- w k). This
                   ;; implementation takes a fraction of available page
@@ -215,14 +215,18 @@
                   ;; run out of space.
                   (cond
                    ((> (St-k l-st) (* w (UNION-str/val d)))
-                    ;; Left did not fit, so we discard it and
-                    ;; continue. We've yet to get any more formatted
-                    ;; document.
+                    ;; Left did not fit, so discard it and continue.
+                    ;; We've yet to get any more formatted document.
                     (recur (St fd k (cons (Be i (UNION-rdoc d)) z))))
                    ;; Fitting so far, but there's more.
-                   (cont? (again l-st))
-                   ;; This left choice fits completely.
-                   (else (values #f l-st))))))
+                   ((not complete?) (again l-st))
+                   ;; This left choice fits completely. If we've got a
+                   ;; full line we'll return it so that it may be
+                   ;; committed.
+                   (else
+                    (if (eq? 'eol complete?)
+                        (values 'eol l-st)
+                        (recur l-st)))))))
              (else (error "be: unexpected" d))))))))
 
 ;; rw:: remaining width (integer)
