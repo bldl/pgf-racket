@@ -157,6 +157,12 @@
           (St-doc st)
           (next st)))))
 
+(define-syntax-rule
+  (debug op arg ... last)
+  (begin
+    (writeln (list (quote op) arg ... last))
+    (op arg ... last)))
+
 ;; Formats input until reaches end-of-input or end-of-line. May return
 ;; earlier, to give the caller the chance to prune a choice that
 ;; doesn't fit.
@@ -208,24 +214,32 @@
               ;; choice, but the rest of the document with the left
               ;; choice made. So we should be able to scan until a
               ;; linebreak or EOF, regardless of which choice is made.
-              (let again ((l-st (St fd k 
-                                    (cons (Be i (UNION-ldoc d)) z))))
-                (let-values (((more? l-st) (be w l-st)))
-                  ;; In Wadler's algorithm the first argument of
-                  ;; 'fits' is computed as (- w k). This
-                  ;; implementation takes a fraction of available page
-                  ;; width. We also do not have a separate 'fits', but
-                  ;; rather we keep track of the column as we keep
-                  ;; adding text so that we know immediately when we
-                  ;; run out of space.
-                  (cond
-                   ((> (St-k l-st) (* w (UNION-str/val d)))
-                    ;; Left did not fit, so commit to right.
-                    (recur (St fd k (cons (Be i (UNION-rdoc d)) z))))
-                   ;; Fitting so far, but there's more on the line.
-                   (more? (again l-st))
-                   ;; Left fit far enough, so commit to it.
-                   (else (values #f l-st))))))
+              (let ((sw (* w (UNION-str/val d))))
+                ;; We construct a fresh formatted document to be able
+                ;; to easily get the length of the formatted line.
+                (let again ((l-st (St (Nil) k 
+                                      (cons (Be i (UNION-ldoc d)) z))))
+                  (let-values (((more? l-st) (be w l-st)))
+                    ;; In Wadler's algorithm the first argument of
+                    ;; 'fits' is computed as (- w k). This
+                    ;; implementation takes a fraction of available page
+                    ;; width.
+                    (cond
+                     ;; We avoid calling 'fits' until we actually need
+                     ;; to confirm that the full line fits. This gives
+                     ;; a reliable result for long as we have had no
+                     ;; linebreaks, and here we have not.
+                     ((and more? (<= (St-k l-st) sw))
+                      ;; Fitting so far, but there's more on the line.
+                      (again l-st))
+                     ((fits (- sw k) (St-doc l-st))
+                      ;; Left fit far enough, so commit to it.
+                      (values #f
+                              (St (Concat fd (St-doc l-st))
+                                  (St-k l-st) (St-lst l-st))))
+                     (else
+                      ;; Left did not fit, so commit to right.
+                      (recur (St fd k (cons (Be i (UNION-rdoc d)) z)))))))))
              (else (error "be: unexpected" d))))))))
 
 ;; rw:: remaining width (integer)
