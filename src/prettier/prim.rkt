@@ -80,6 +80,8 @@
 ;;; formatting algorithm
 ;;; 
 
+;; Note that the precense of annotations means that 'struct-copy' will
+;; not work for Tokens.
 (data/anno* Token ((Nest lv) ;; Lv -> Token
                    (Text s) ;; string -> Token
                    (Line s) ;; string -> Token
