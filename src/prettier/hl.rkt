@@ -7,33 +7,37 @@
 ;;; shorthands
 ;;; 
 
--(define (UNION-str/val d)
--  (let ((v (UNION-str d)))
--    (if (procedure? v) (v) v)))
--
--(define* (nest n doc)
--  (NEST (LvInc n) doc))
--
--(define* (nest/str s doc)
--  (NEST (LvStr s) doc))
--
--(define* (nest/abs n doc)
--  (NEST (LvAbs n) doc))
--
--(define* nest/0 (fix nest/abs 0))
--
--(define* (nest/rel n doc)
--  (NEST (LvRel n) doc))
--
--(define* align (fix nest/rel 0))
--
--(define* (line (hyphen ""))
--  (LINE hyphen))
+#|
+(define* (nest n doc)
+  (NEST (LvInc n) doc))
+
+(define* (nest/str s doc)
+  (NEST (LvStr s) doc))
+
+(define* (nest/abs n doc)
+  (NEST (LvAbs n) doc))
+
+(define* nest/0 (fix nest/abs 0))
+
+(define* (nest/rel n doc)
+  (NEST (LvRel n) doc))
+|#
+
+(define* align (Nest (LvRel 0)))
+
+(define* (br (hyphen ""))
+  (Line hyphen))
+
+(define* nbsp (Text " "))
+
+(define* (space sh)
+  (Union nbsp (br) sh))
 
 ;;; 
 ;;; ala Wadler
 ;;; 
 
+#|
 (define* (<+> x y)
   (concat x (text " ") y))
 
@@ -80,11 +84,13 @@
             (private-union/lazy
              (<+> (flatten x) (fill (cons (flatten (car xs)) (cdr xs))))
              (</> x (fill xs)))))))
+|#
 
 ;;; 
 ;;; experimental
 ;;; 
 
+#|
 (define (partition/2 lst)
   (let ((len (length lst)))
     (let-values (((q r) (quotient/remainder len 2)))
@@ -98,3 +104,4 @@
           (private-union (flatten (stack xs))
                          (stack (list (apply group* l)
                                       (apply group* r))))))))
+|#
