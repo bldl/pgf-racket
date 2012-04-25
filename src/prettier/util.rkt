@@ -99,6 +99,14 @@
        (abstract-struct* nm () #:transparent)
        (data-for* nm lst)))))
 
+(define-syntax* data/anno*
+  (syntax-rules ()
+    ((_ nm lst)
+     (begin
+       (struct nm ((anno #:auto #:mutable)) #:transparent)
+       (provide (except-out (struct-out nm) nm))
+       (data-for* nm lst)))))
+
 (define-syntax* fix
   (syntax-rules ()
     ((_ fn arg ...)
