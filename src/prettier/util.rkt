@@ -36,7 +36,19 @@
      (begin
        (define-syntax-rule (name rest ...) body)
        (provide name)))))
-  
+
+(define-syntax-rule*
+  (struct* nm rest ...)
+  (begin
+    (struct nm rest ...)
+    (provide (struct-out nm))))
+
+(define-syntax-rule*
+  (abstract-struct* nm rest ...)
+  (begin
+    (struct nm rest ...)
+    (provide (except-out (struct-out nm) nm))))
+
 (define* println
   (case-lambda
     ((datum) (begin (print datum) (newline)))
@@ -70,6 +82,22 @@
      (begin
        (struct nm () #:transparent)
        (data-for nm lst)))))
+
+(define-syntax data-for*
+  (syntax-rules ()
+    ((_ nm ())
+     (void))
+    ((_ nm ((ctor fld ...) more ...))
+     (begin
+       (struct* ctor nm (fld ...) #:transparent)
+       (data-for* nm (more ...))))))
+
+(define-syntax* data*
+  (syntax-rules ()
+    ((_ nm lst)
+     (begin
+       (abstract-struct* nm () #:transparent)
+       (data-for* nm lst)))))
 
 (define-syntax* fix
   (syntax-rules ()

@@ -31,11 +31,11 @@
 ;;; indentation
 ;;; 
 
-(data Lv ((LvInc n) ;; integer -> Lv
-          (LvStr s) ;; string -> Lv
-          (LvAbs n) ;; integer -> Lv
-          (LvRel n) ;; integer -> Lv
-          (LvPop))) ;; -> Lv
+(data* Lv ((LvInc n) ;; integer -> Lv
+           (LvStr s) ;; string -> Lv
+           (LvAbs n) ;; integer -> Lv
+           (LvRel n) ;; integer -> Lv
+           (LvPop))) ;; -> Lv
 
 (define (spaces n)
   (make-string n #\space))
@@ -77,11 +77,11 @@
 ;;; formatting algorithm
 ;;; 
 
-(data Token ((Nest lv) ;; Lv -> Token
-             (Text s) ;; string -> Token
-             (Line s) ;; string -> Token
-             (Union l r sh) ;; stream, stream, rational -> Token
-             (Width w))) ;; rational -> Token
+(data* Token ((Nest lv) ;; Lv -> Token
+              (Text s) ;; string -> Token
+              (Line s) ;; string -> Token
+              (Union l r sh) ;; stream, stream, rational -> Token
+              (Width w))) ;; rational -> Token
 
 ;; l:: left choice (stream of Token)
 ;; r:: right choice (stream of Token)
@@ -89,15 +89,15 @@
 (define* (private-union l r (sh 1))
   (Union l r sh))
 
-(struct FmtSt (
-               cw ;; specified page width (integer, constant)
-               w ;; page width (rational)
-               outDoc ;; formatted document (stream of Token)
-               inDoc ;; unread input (stream of Token)
-               k ;; current column (integer)
-               lvStack ;; nesting stack (stack of string)
-               bt ;; backtracking state (if any; can be chained)
-               ) #:transparent)
+(struct* FmtSt (
+                cw ;; specified page width (integer, constant)
+                w ;; page width (rational)
+                outDoc ;; formatted document (stream of Token)
+                inDoc ;; unread input (stream of Token)
+                k ;; current column (integer)
+                lvStack ;; nesting stack (stack of string)
+                bt ;; backtracking state (if any; can be chained)
+                ) #:transparent)
 
 ;; xxx try using define-sequence-syntax to define a way to 'for' over FmtSt using 'process-token', and naturally state should be made available for inspection and even modification
 
@@ -250,7 +250,7 @@
 ;; cost of creating a new closure for every iteration. This is
 ;; inspired by Lua's ipairs, although we require no invariant state.
 ;; http://www.lua.org/pil/7.3.html
-(define (flatten ts) ;; stream of Token -> stream of Token
+(define* (flatten ts) ;; stream of Token -> stream of Token
   (if (stream-empty? ts)
       ts
       (let ((t (stream-first ts))
