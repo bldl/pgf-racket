@@ -24,6 +24,7 @@
          (d2 (stream (Text "foobar") (Nest (LvInc 4)) (Line "")
                      (Text "baz") (Nest (LvPop)) (Line "")
                      (Text "bamf")))
+         (pop (Nest (LvPop)))
          )
     (list
      (cons "nesting" d2)
@@ -32,8 +33,9 @@
      (cons "union" (stream (private-union (stream (Text "verylongverylong")) (stream (Text "short")))))
      (cons "lines" d1)
      (cons "word" (stream (Text "foobar")))
-     (cons "empty" empty-stream))
-    ))
+     (cons "empty" empty-stream)
+     ;;(cons "too many pops" (stream (Nest (LvInc 2)) pop pop))
+     )))
 
 (define (main)
   (for* ((w (reverse w-lst))

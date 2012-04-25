@@ -70,7 +70,10 @@
    ((LvRel? lv)
     (margin st k (LvAbs (+ k (LvRel-n lv)))))
    ((LvPop? lv)
-    (cdr st))
+    ;; Stack must remain non-empty.
+    (if (or (null? st) (null? (cdr st)))
+        (error "margin: LvPop without matching Lv push")
+        (cdr st)))
    (else (error "margin: unexpected" lv))))
 
 ;;; 
