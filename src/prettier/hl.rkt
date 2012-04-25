@@ -4,7 +4,34 @@
 (require "util.rkt")
 
 ;;; 
-;;; Utility functions
+;;; shorthands
+;;; 
+
+-(define (UNION-str/val d)
+-  (let ((v (UNION-str d)))
+-    (if (procedure? v) (v) v)))
+-
+-(define* (nest n doc)
+-  (NEST (LvInc n) doc))
+-
+-(define* (nest/str s doc)
+-  (NEST (LvStr s) doc))
+-
+-(define* (nest/abs n doc)
+-  (NEST (LvAbs n) doc))
+-
+-(define* nest/0 (fix nest/abs 0))
+-
+-(define* (nest/rel n doc)
+-  (NEST (LvRel n) doc))
+-
+-(define* align (fix nest/rel 0))
+-
+-(define* (line (hyphen ""))
+-  (LINE hyphen))
+
+;;; 
+;;; ala Wadler
 ;;; 
 
 (define* (<+> x y)
@@ -55,8 +82,7 @@
              (</> x (fill xs)))))))
 
 ;;; 
-;;; Extra utility functions
-;;; (Not in Wadler's paper.)
+;;; experimental
 ;;; 
 
 (define (partition/2 lst)

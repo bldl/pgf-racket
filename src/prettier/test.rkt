@@ -52,5 +52,3 @@
         (newline)))
 
 (time (run-tests))
-
-

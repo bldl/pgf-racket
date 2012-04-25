@@ -2,330 +2,266 @@
 
 (require "util.rkt")
 
-;;; The pretty printer
-
-(data Lv ((LvInc n) ;; integer -> Lv
-          (LvStr s) ;; string -> Lv
-          (LvAbs n) ;; integer -> Lv
-          (LvRel n))) ;; integer -> Lv
-
-(data DOC ((NIL) ;; -> DOC
-           (CONCAT ldoc rdoc) ;; DOC, DOC -> DOC
-           (NEST lv doc) ;; Lv, DOC -> DOC
-           (TEXT s) ;; string -> DOC
-           (LINE s) ;; string -> DOC
-           (UNION ldoc rdoc str))) ;; DOC, DOC, rational -> DOC
-
-(data Doc ((Nil) ;; -> Doc
-           (Text s) ;; string -> Doc
-           (Line s) ;; string -> Doc
-           (Concat ldoc rdoc))) ;; Doc, Doc -> Doc
-
-;; f:: function to compute document (-> DOC)
-;; doc:: cached non-LAZY document (DOC)
-(struct LAZY DOC (f (doc #:mutable #:auto)) #:transparent)
-
-;; x:: document (DOC)
-;; Returns:: non-LAZY document (DOC)
-(define (FORCE! x)
-  (if (not (LAZY? x))
-      x
-      (aif d (LAZY-doc x)
-           d
-           (let ((d ((LAZY-f x))))
-             (when (LAZY? d)
-               (set! d (FORCE! d)))
-             (set-LAZY-doc! x d)
-             d))))
-
-(provide (rename-out (NIL nil)))
-(provide (rename-out (TEXT text)))
-(provide (rename-out (LAZY susp)))
-
-(define (UNION-str/val d)
-  (let ((v (UNION-str d)))
-    (if (procedure? v) (v) v)))
-
-(define* (nest n doc)
-  (NEST (LvInc n) doc))
-
-(define* (nest/str s doc)
-  (NEST (LvStr s) doc))
-
-(define* (nest/abs n doc)
-  (NEST (LvAbs n) doc))
-
-(define* nest/0 (fix nest/abs 0))
-
-(define* (nest/rel n doc)
-  (NEST (LvRel n) doc))
-
-(define* align (fix nest/rel 0))
-
-(define* (line (hyphen ""))
-  (LINE hyphen))
-
-(define* concat
-  (case-lambda
-    (() (NIL))
-    ((x) x)
-    ((x y . rest)
-     (CONCAT x (apply concat y rest)))))
-
-;; str:: Eagerness to choose first fitting fragment. (rational)
-(define* (private-union l r (str 1))
-  (UNION l r str))
-
-(define-syntax-rule*
-  (private-union/lazy lexp rexp)
-  (LAZY (thunk (private-union (LAZY (thunk lexp))
-                              (LAZY (thunk rexp))))))
-
-(define* (group x)
-  (private-union (flatten x) x))
-
-(define* (flatten d)
-  (when (LAZY? d) (set! d (FORCE! d)))
-  (cond
-   ((NIL? d) d)
-   ((CONCAT? d) (CONCAT (flatten (CONCAT-ldoc d))
-                        (flatten (CONCAT-rdoc d))))
-   ((NEST? d) (NEST (NEST-lv d) (flatten (NEST-doc d))))
-   ((TEXT? d) d)
-   ((LINE? d) (TEXT " "))
-   ((UNION? d) (flatten (UNION-ldoc d)))
-   (else (error "flatten: unexpected" d))))
-
-;; k:: current column (integer)
-;; s:: previous indentation string (string)
-;; lv:: level specification (Lv)
-(define (margin k s lv)
-  (cond
-   ((LvInc? lv) (let ((n (LvInc-n lv)))
-                  (if (>= n 0)
-                      (string-append s (make-string n #\space))
-                      (let* ((len (string-length s))
-                             (nlen (+ len n)))
-                        (if (> nlen 0)
-                            (substring s 0 nlen) "")))))
-   ((LvStr? lv) (string-append s (LvStr-s lv)))
-   ((LvAbs? lv) (let ((n (LvAbs-n lv)))
-                  (if (> n 0)
-                      (make-string n #\space) "")))
-   ((LvRel? lv) (margin k s (LvAbs (+ k (LvRel-n lv)))))
-   (else (error "margin: unexpected" lv))))
-
-(define* (layout d)
-  ;; Concat is used a lot in the generated documents, in a deeply
-  ;; nesting manner, and hence there is potential for deep recursion
-  ;; in traversing. We avoid that by using a loop.
-  (let recur ((input (list d))
-              (output ""))
-    (shift-car
-     output d input input
-     (cond
-      ((Nil? d) (recur input output))
-      ((Text? d) (recur input (string-append output (Text-s d))))
-      ((Line? d) (recur input (string-append output "\n" (Line-s d))))
-      ((Concat? d) (recur (cons (Concat-ldoc d)
-                                (cons (Concat-rdoc d) input)) output))
-      (else (error "layout: unexpected" d))))))
-
-;;; 
-;;; Formatting algorithm.
-;;; 
-
-;; i:: nesting string (string)
-;; doc:: document (DOC)
-(struct Be (i doc) #:transparent)
-
-;; doc:: formatted document (Doc)
-;; k:: current column (integer)
-;; lst:: unformatted documents with nesting levels (list of Be)
-(struct St (doc k lst) #:transparent)
-
-;; w:: page width (integer)
-;; k:: current column (integer)
-;; x:: remaining document (DOC)
-;; Returns:: formatted document (Doc)
-(define (best w k x)
-  ;; In Racket we get faster code by avoiding the use of 'set!',
-  ;; although this is not as Racketish.
-  (let next ((st (St (Nil) k (list (Be "" x)))))
-    (let-values (((dummy st) (be w st)))
-      (if (null? (St-lst st))
-          (St-doc st)
-          (next st)))))
-
 (define-syntax-rule
   (debug op arg ... last)
   (begin
     (writeln (list (quote op) arg ... last))
     (op arg ... last)))
 
-;; Formats input until reaches end-of-input or end-of-line. May return
-;; earlier, to give the caller the chance to prune a choice that
-;; doesn't fit.
-;;
+(define (stream-put s t)
+  (stream-append s (stream t)))
+
+;;; 
+;;; stack
+;;; 
+
+(define (spush st t)
+  (cons t st))
+
+(define (spop st)
+  (values (cdr st) (car st)))
+
+(define-syntax-rule
+  (let-spop (h t st) e ...)
+  (let ((h (car st))
+        (t (cdr st)))
+    e ...))
+
+;;; 
+;;; indentation
+;;; 
+
+(data Lv ((LvInc n) ;; integer -> Lv
+          (LvStr s) ;; string -> Lv
+          (LvAbs n) ;; integer -> Lv
+          (LvRel n) ;; integer -> Lv
+          (LvPop))) ;; -> Lv
+
+(define (spaces n)
+  (make-string n #\space))
+
+(define (string-chop-n n s)
+  (let* ((len (string-length s))
+         (nlen (+ len n)))
+    (if (> nlen 0)
+        (substring s 0 nlen)
+        "")))
+
+;; st:: old indentation state (stack of string)
+;; k:: current column (integer)
+;; lv:: level specification (Lv)
+;; Returns:: new indentation state (stack of string)
+(define (margin st k lv)
+  (cond
+   ((LvInc? lv)
+    (spush st
+           (let ((s (car st))
+                 (n (LvInc-n lv)))
+             (if (>= n 0)
+                 (string-append s (spaces n))
+                 (string-chop-n n s)))))
+   ((LvStr? lv)
+    (spush st
+           (string-append (car st) (LvStr-s lv))))
+   ((LvAbs? lv)
+    (spush st
+           (let ((n (LvAbs-n lv)))
+             (if (> n 0) (spaces n) ""))))
+   ((LvRel? lv)
+    (margin st k (LvAbs (+ k (LvRel-n lv)))))
+   ((LvPop? lv)
+    (cdr st))
+   (else (error "margin: unexpected" lv))))
+
+;;; 
+;;; formatting algorithm
+;;; 
+
+(data Token ((Nest lv) ;; Lv -> Token
+             (Text s) ;; string -> Token
+             (Line s) ;; string -> Token
+             (Union l r sh) ;; stream, stream, rational -> Token
+             (Width w))) ;; rational -> Token
+
+;; l:: left choice (stream of Token)
+;; r:: right choice (stream of Token)
+;; sh:: eagerness to choose first fitting fragment (rational)
+(define* (private-union l r (sh 1))
+  (Union l r sh))
+
+(struct FmtSt (
+               cw ;; specified page width (integer, constant)
+               w ;; page width (rational)
+               outDoc ;; formatted document (stream of Token)
+               inDoc ;; unread input (stream of Token)
+               k ;; current column (integer)
+               lvStack ;; nesting stack (stack of string)
+               bt ;; backtracking state (if any; can be chained)
+               ) #:transparent)
+
+;; xxx try using define-sequence-syntax to define a way to 'for' over FmtSt using 'process-token', and naturally state should be made available for inspection and even modification
+
 ;; w:: page width (integer)
-;; st:: state before choices (St)
-;; Returns:: early return, state after choices (boolean, St)
-(define (be w st)
-  (let recur ((st st))
-    (let ((lst (St-lst st)))
-      (if (null? lst)
-          (values #f st)
-          (let* ((k (St-k st))
-                 (fd (St-doc st))
-                 (h (car lst))
-                 (i (Be-i h))
-                 (d (Be-doc h))
-                 (z (cdr lst)))
-            (when (LAZY? d) (set! d (FORCE! d)))
+;; inDoc:: unread input (stream of Token, optional)
+(define* (new-FmtSt w (inDoc empty-stream))
+  (FmtSt w w empty-stream inDoc 0 '("") #f))
+
+;; Flushes buffered documents, committing decisions made thus far.
+;; After this it is safe to consume all of 'outDoc'.
+(define* (flush st) ;; FmtSt -> FmtSt
+  (struct-copy FmtSt st (bt #f)))
+
+(define (process-token st) ;; FmtSt -> FmtSt
+  (let ((inDoc (FmtSt-inDoc st)))
+    (if (stream-empty? inDoc)
+        st
+        (let ((d (stream-first inDoc))
+              (inDoc (stream-rest inDoc)))
+          (let ((k (FmtSt-k st))
+                (w (FmtSt-w st))
+                (outDoc (FmtSt-outDoc st))
+                (i (car (FmtSt-lvStack st))))
             (cond
-             ((NIL? d)
-              (recur (St fd k z)))
-             ((CONCAT? d)
-              (recur (St fd k (cons (Be i (CONCAT-ldoc d))
-                                    (cons (Be i (CONCAT-rdoc d)) z)))))
-             ((NEST? d)
-              (recur (St fd k
-                         (cons (Be (margin k i (NEST-lv d))
-                                   (NEST-doc d)) z))))
-             ((TEXT? d)
-              ;; The Haskell version (I believe) notices immediately
-              ;; if the length of a text exceeds available width. We
-              ;; must make the same happen here. Typically text
-              ;; consumes available width, meaning that there's a
-              ;; possibility of running out.
-              (let* ((s (TEXT-s d))
-                     (l (string-length s)))
-                (values #t (St (Concat fd (Text s)) (+ k l) z))))
-             ((LINE? d)
-              ;; Note that we do not 'recur' further here. Rather we
-              ;; return control to the caller. Here we lack the
-              ;; context to know whether to proceed further or not.
-              (values #f
-                      (St (Concat fd (Concat (Text (LINE-s d)) (Line i)))
-                          (string-length i) z)))
-             ((UNION? d)
-              ;; We use recursion to explore the left choice. Note
-              ;; that we're not just exploring what's within the left
-              ;; choice, but the rest of the document with the left
-              ;; choice made. So we should be able to scan until a
-              ;; linebreak or EOF, regardless of which choice is made.
-              (let ((sw (* w (UNION-str/val d))))
-                ;; We construct a fresh formatted document to be able
-                ;; to easily get the length of the formatted line.
-                (let again ((l-st (St (Nil) k 
-                                      (cons (Be i (UNION-ldoc d)) z))))
-                  (let-values (((more? l-st) (be w l-st)))
-                    ;; In Wadler's algorithm the first argument of
-                    ;; 'fits' is computed as (- w k). This
-                    ;; implementation takes a fraction of available page
-                    ;; width.
-                    (cond
-                     ;; We avoid calling 'fits' until we actually need
-                     ;; to confirm that the full line fits. This gives
-                     ;; a reliable result for long as we have had no
-                     ;; linebreaks, and here we have not.
-                     ((and more? (<= (St-k l-st) sw))
-                      ;; Fitting so far, but there's more on the line.
-                      (again l-st))
-                     ((fits (- sw k) (St-doc l-st))
-                      ;; Left fit far enough, so commit to it.
-                      (values #f
-                              (St (Concat fd (St-doc l-st))
-                                  (St-k l-st) (St-lst l-st))))
-                     (else
-                      ;; Left did not fit, so commit to right.
-                      (recur (St fd k (cons (Be i (UNION-rdoc d)) z)))))))))
-             (else (error "be: unexpected" d))))))))
+             ((Nest? d)
+              (struct-copy FmtSt st (inDoc inDoc)
+                           (lvStack (margin (FmtSt-lvStack st) k (Nest-lv d)))))
+             ((Text? d)
+              ;; Here we must check whether the text still fits. If it
+              ;; doesn't, we'll only continue if we don't have a way back.
+              (let ((s (Text-s d)))
+                (let ((k (+ k (string-length s)))
+                      (bt (FmtSt-bt st)))
+                  (if (and bt (> k w))
+                      bt ;; backtrack
+                      (struct-copy FmtSt st (inDoc inDoc)
+                                   (k k) (outDoc (stream-put outDoc d)))))))
+             ((Line? d)
+              ;; This construct may cause a column increase, and we'll
+              ;; backtrack if necessary and possible, even though there's no
+              ;; further input for the line. If this fits, though, then we're
+              ;; committed, and won't backtrack from here.
+              (let ((s (Line-s d)))
+                (let ((k (+ k (string-length s)))
+                      (bt (FmtSt-bt st)))
+                  (if (and bt (> k w))
+                      bt ;; backtrack
+                      (struct-copy FmtSt st (inDoc inDoc)
+                                   (k (string-length i))
+                                   (bt #f)
+                                   (outDoc
+                                    (stream-append outDoc
+                                                   (stream
+                                                    (Text s)
+                                                    (Text "\n")
+                                                    (Text i)))))))))
+             ((Union? d)
+              ;; Pick left option, leave right for backtracking.
+              (let ((l (Union-l d))
+                    (r (Union-r d))
+                    (sh (Union-sh d)))
+                (let ((r-st
+                       (struct-copy FmtSt st
+                                    (inDoc (stream-append r inDoc)))))
+                  (struct-copy FmtSt st
+                               (w (* (FmtSt-cw st) sh))
+                               (inDoc
+                                (stream-append l (stream-cons (Width w) inDoc)))
+                               (bt r-st)))))
+             ((Width? d)
+              (struct-copy FmtSt st
+                           (w (Width-w d))
+                           (inDoc inDoc)))
+             (else (error "process-token: unexpected" d))
+             ))))))
 
-;; rw:: remaining width (integer)
-;; d:: formatted document whose first line to try fitting (Doc)
-;; Returns:: whether fits (boolean)
-(define (fits rw d)
-  (let recur ((w rw)
-              (lst (list d)))
-    (cond
-     ((< w 0) #f)
-     ((null? lst) #t)
-     (else
-      (let ((d (car lst)))
+(define (FmtSt-eof? st) ;; FmtSt -> boolean
+  (stream-empty? (FmtSt-inDoc st)))
+
+;; Processes tokens for as long as there is input.
+(define (process-tokens st) ;; FmtSt -> FmtSt
+  (let loop ((st st))
+    (if (FmtSt-eof? st)
+        st
+        (loop (process-token st)))))
+
+;;; 
+;;; text output
+;;; 
+
+;; d:: formatted token
+;; Returns:: pretty-printed string
+(define* (pgf-string/token d) ;; Token -> string
+  (cond
+   ((Text? d)
+    (Text-s d))
+   (else
+    (error "pgf-string/token: unexpected" d))))
+
+;; ts:: formatted document
+;; Returns:: pretty-printed string
+(define* (pgf-string/stream ts) ;; stream of Token -> string
+  (apply string-append
+         (for/list ((t (in-stream ts)))
+                   (pgf-string/token t))))
+
+(define* (pgf-string/st st)
+  (pgf-string/stream
+   (FmtSt-outDoc
+    (process-tokens st))))
+
+;; w:: page width
+;; ts:: formatted document
+;; Returns:: pretty-printed string
+(define* (pgf-string w ts) ;; integer, stream -> string
+  (pgf-string/st (new-FmtSt w ts)))
+
+;; Clears output buffer by printing it all out.
+(define* (pgf-print/st/buffered st (out (current-output-port)))
+  (for ((t (FmtSt-outDoc st)))
+       (display (pgf-string/token t) out))
+  (struct-copy FmtSt st (outDoc empty-stream)))
+
+;; Processes as much input as is available, and prints as much as
+;; safely can. Works incrementally so that printing happens as soon as
+;; there is text ready for output.
+(define* (pgf-print/st/safe st (out (current-output-port)))
+  (let loop ()
+    (unless (FmtSt-bt st) ;; xxx this needs fixing in Rascal version
+      (set! st (pgf-print/st/buffered st out)))
+    (set! st (process-token st))
+    (if (FmtSt-eof? st) st (loop))))
+
+(define* (pgf-print/st/flush st (out (current-output-port)))
+  (pgf-print/st/buffered (flush (pgf-print/st/safe st out)) out))
+
+(define* (pgf-print w ts (out (current-output-port)))
+  (pgf-print/st/flush (new-FmtSt w ts) out))
+
+(define* (pgf-println w ts (out (current-output-port)))
+  (pgf-print w ts out) (newline out))
+
+;;; 
+;;; grouping construct
+;;; 
+
+ ;; xxx this code needs fixing in Rascal -- flattenToken needs to handle more cases and can not always return tokens but streams
+
+;; Behaves lazily. Note the use of stateless iterators to avoid the
+;; cost of creating a new closure for every iteration. This is
+;; inspired by Lua's ipairs, although we require no invariant state.
+;; http://www.lua.org/pil/7.3.html
+(define (flatten ts) ;; stream of Token -> stream of Token
+  (if (stream-empty? ts)
+      ts
+      (let ((t (stream-first ts))
+            (ts (stream-rest ts)))
         (cond
-         ((Nil? d) (recur w (cdr lst)))
-         ((Text? d) (recur (- w (string-length (Text-s d))) (cdr lst)))
-         ((Line? d) #t)
-         ((Concat? d) (recur w (cons (Concat-ldoc d)
-                                     (cons (Concat-rdoc d) (cdr lst)))))
-         (else (error "fits: unexpected" d))))))))
+         ((Line? t)
+          (stream-cons (Text " ") (flatten ts)))
+         ((Union? t)
+          (flatten (stream-append (Union-l t) ts)))
+         (else
+          (stream-cons t (flatten ts)))))))
 
-(define* (pretty w d)
-  (layout (best w 0 d)))
-
-;;; 
-;;; Introspection utilities.
-;;; 
-
-(define* (DOC-to-sexp doc)
-  (cond
-   ((LAZY? doc) `(susp ,(aif x (LAZY-doc doc) (DOC-to-sexp x) #f)))
-   ((NIL? doc) '(nil))
-   ((CONCAT? doc) `(concat ,(DOC-to-sexp (CONCAT-ldoc doc))
-                           ,(DOC-to-sexp (CONCAT-rdoc doc))))
-   ((NEST? doc) (let ((lv (NEST-lv doc))
-                      (doc (DOC-to-sexp (NEST-doc doc))))
-                  (cond
-                   ((LvInc? lv) `(nest ,(LvInc-n lv) ,doc))
-                   ((LvStr? lv) `(nest/str ,(LvStr-s lv) ,doc))
-                   ((LvAbs? lv) `(nest/abs ,(LvAbs-n lv) ,doc))
-                   ((LvRel? lv) `(nest/rel ,(LvRel-n lv) ,doc))
-                   (else (error "unexpected" lv)))))
-   ((TEXT? doc) `(text ,(TEXT-s doc)))
-   ((LINE? doc) `(line ,(LINE-s doc)))
-   ((UNION? doc) `(union ,(UNION-str/val doc)
-                         ,(DOC-to-sexp (UNION-ldoc doc))
-                         ,(DOC-to-sexp (UNION-rdoc doc))))
-   (else (error "DOC-to-sexp: unexpected" doc))))
-
-(define* (DOC-to-string doc)
-  (define (concat? x)
-    (and (list? x) (not (null? x))
-         (eq? (car x) 'concat)))
-  (cond
-   ((string? doc) doc)
-   ((LAZY? doc) (aif x (LAZY-doc doc) (DOC-to-string x) '(susp)))
-   ((NIL? doc) "")
-   ((CONCAT? doc)
-    (let ((l (DOC-to-string (CONCAT-ldoc doc)))
-          (r (DOC-to-string (CONCAT-rdoc doc))))
-      (if (and (string? l) (string? r))
-          (string-append l r)
-          (let ((lc (if (concat? l) (cdr l) (list l)))
-                (rc (if (concat? r) (cdr r) (list r))))
-            `(concat ,@lc ,@rc)))))
-   ((NEST? doc)
-    (let ((lv (NEST-lv doc))
-          (doc (DOC-to-string (NEST-doc doc))))
-      (cond
-       ((LvInc? lv) `(nest ,(LvInc-n lv) ,doc))
-       ((LvStr? lv) `(nest/str ,(LvStr-s lv) ,doc))
-       ((LvAbs? lv) `(nest/abs ,(LvAbs-n lv) ,doc))
-       ((LvRel? lv) `(nest/rel ,(LvRel-n lv) ,doc))
-       (else (error "unexpected" lv)))))
-   ((TEXT? doc) (TEXT-s doc))
-   ((LINE? doc) (string-append (LINE-s doc) "\n"))
-   ((UNION? doc) `(union ,(UNION-str/val doc)
-                         ,(DOC-to-string (UNION-ldoc doc))
-                         ,(DOC-to-string (UNION-rdoc doc))))
-   (else (error "DOC-to-string: unexpected" doc))))
-
-(define* (Doc-to-sexp doc)
-  (cond
-   ((Nil? doc) '(nil))
-   ((Text? doc) `(text ,(Text-s doc)))
-   ((Line? doc) `(line ,(Line-s doc)))
-   ((Concat? doc) `(concat ,(Doc-to-sexp (Concat-ldoc doc))
-                           ,(Doc-to-sexp (Concat-rdoc doc))))
-   (else (error "Doc-to-sexp: unexpected" doc))))
+(define* (group ts)
+  (stream (private-union (flatten ts) ts)))
