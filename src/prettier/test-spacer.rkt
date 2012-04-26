@@ -47,7 +47,6 @@
      (cons "lines" d1)
      (cons "word" (stream (Text "foobar")))
      (cons "empty" empty-stream)
-     ;;(cons "too many pops" (stream (Nest (LvInc 2)) pop pop))
      )))
 
 (define (main)

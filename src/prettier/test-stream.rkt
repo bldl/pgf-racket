@@ -1,5 +1,6 @@
 #lang racket
 
+(require "hl.rkt")
 (require "prim.rkt")
 (require "token.rkt")
 (require "util.rkt")
@@ -26,8 +27,18 @@
                      (Text "baz") (Nest (LvPop)) (Line "")
                      (Text "bamf")))
          (pop (Nest (LvPop)))
+         (d4 (list/st
+              (Text "'") (Text "(")
+              align
+              (group
+               (sequence->stream 
+                (add-between
+                 (map (compose Text number->string) (for/list ((i 10)) i))
+                 (Line "")))) ex
+              (Text ")")))
          )
     (list
+     (cons "grouped list" d4)
      (cons "nesting" d2)
      (cons "grouped then flattened" (flatten (group d1)))
      (cons "grouped" (group d1))

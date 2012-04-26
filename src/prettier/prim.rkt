@@ -12,6 +12,10 @@
 (define (stream-put s t)
   (stream-append s (stream t)))
 
+;; A list of streams or tokens. Gives a stream.
+(define* (list/st . xs)
+  (apply stream-append (map (lambda (x) (if (stream? x) x (stream x))) xs)))
+
 ;;; 
 ;;; stack
 ;;; 

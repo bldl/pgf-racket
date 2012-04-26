@@ -1,6 +1,7 @@
 #lang racket
 
 (require "prim.rkt")
+(require "token.rkt")
 (require "util.rkt")
 
 ;;; 
@@ -24,6 +25,8 @@
 |#
 
 (define* align (Nest (LvRel 0)))
+
+(define* ex (Nest (LvPop)))
 
 (define* (br (hyphen ""))
   (Line hyphen))
