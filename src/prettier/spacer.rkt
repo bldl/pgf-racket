@@ -6,6 +6,7 @@ Adapted from Anya's original version (in Rascal).
 
 |#
 
+(require "token.rkt")
 (require "util.rkt")
 
 ;; Context may also be #f.
@@ -88,3 +89,12 @@ Adapted from Anya's original version (in Rascal).
       (set!-values (inToks outToks ctx) (process-token inToks outToks ctx))
       (next))
     (values inToks outToks ctx)))
+
+(define* (printlnTokenStream toks)
+  (for ((t (in-stream toks)))
+       (match t
+              ((Text a " ") (display "_"))
+              ((Text a s) (display (format "[~a]" s)))
+              ((Line a s) (display " "))
+              (else (display (format " ~s " t)))))
+  (newline))

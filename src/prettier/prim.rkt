@@ -1,5 +1,6 @@
 #lang racket
 
+(require "token.rkt")
 (require "util.rkt")
 
 (define-syntax-rule
@@ -30,12 +31,6 @@
 ;;; 
 ;;; indentation
 ;;; 
-
-(data* Lv ((LvInc n) ;; integer -> Lv
-           (LvStr s) ;; string -> Lv
-           (LvAbs n) ;; integer -> Lv
-           (LvRel n) ;; integer -> Lv
-           (LvPop))) ;; -> Lv
 
 (define (spaces n)
   (make-string n #\space))
@@ -79,23 +74,6 @@
 ;;; 
 ;;; formatting algorithm
 ;;; 
-
-;; Note that the precense of annotations means that 'struct-copy' will
-;; not work for Tokens.
-(data/anno* Token ((Nest lv) ;; Lv -> Token
-                   (Text s) ;; string -> Token
-                   (Line s) ;; string -> Token
-                   (Union l r sh) ;; stream, stream, rational -> Token
-                   (Width w))) ;; rational -> Token
-
-(define* (anno t) ;; Token -> any
-  (Token-anno t))
-
-;; Careful with this as it's mutating. The idea is that you tag a
-;; token with its semantics (as desired) after creating it, and then
-;; leave the annotation well alone.
-(define* (set-anno! t v) ;; Token, any -> Token (with side effects)
-  (set-Token-anno! t v) t)
 
 ;; l:: left choice (stream of Token)
 ;; r:: right choice (stream of Token)
@@ -240,7 +218,7 @@
 ;; there is text ready for output.
 (define* (pgf-print/st/safe st (out (current-output-port)))
   (let loop ()
-    (unless (FmtSt-bt st) ;; xxx this needs fixing in Rascal version
+    (unless (FmtSt-bt st)
       (set! st (pgf-print/st/buffered st out)))
     (set! st (process-token st))
     (if (FmtSt-eof? st) st (loop))))
@@ -257,8 +235,6 @@
 ;;; 
 ;;; grouping construct
 ;;; 
-
- ;; xxx this code needs fixing in Rascal -- flattenToken needs to handle more cases and can not always return tokens but streams
 
 ;; Behaves lazily. Note the use of stateless iterators to avoid the
 ;; cost of creating a new closure for every iteration. This is

@@ -1,18 +1,29 @@
 #lang racket
 
 (require "prim.rkt")
+(require "spacer.rkt")
 (require "token.rkt")
 (require "util.rkt")
 
 ;;; 
-;;; for testing the stream-based API
+;;; for testing the spacer engine
 ;;; 
 
-(define (test-doc w t d)
-  (printfln "// ~a (w=~a)" t w)
+(define (test-doc w tn t desc inToks)
+  (printfln "// ~a (t=~a, w=~a)" desc tn w)
   (displayln (width-divider w))
-  (pgf-println w d)
+  (let ((outToks empty-stream)
+        (ctx (new-SpacerContext t)))
+    (set!-values (inToks outToks ctx)
+                 (process-tokens inToks outToks ctx))
+    (printlnTokenStream outToks)
+    (pgf-println w outToks))
   (displayln "// ----------"))
+
+(define t-lst
+  (list
+   (cons "empty" (hash))
+   ))
 
 (define w-lst '(5 10 15 25 35 55 75))
 
@@ -41,16 +52,8 @@
 
 (define (main)
   (for* ((w (reverse w-lst))
+         (t t-lst)
          (d d-lst))
-        (test-doc w (car d) (cdr d)))
-
-  ;; to test laziness
-  (let ((s (stream-cons (displayln 'foo) (stream (displayln 'bar)))))
-    (displayln 'have-s)
-    (stream-first s)
-    (displayln 'have-first)
-    (stream-rest s)
-    (displayln 'have-last))
-  )
+        (test-doc w (car t) (cdr t) (car d) (cdr d))))
       
 (main)
