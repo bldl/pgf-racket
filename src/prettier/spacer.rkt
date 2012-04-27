@@ -2,99 +2,131 @@
 
 #|
 
-Adapted from Anya's original version (in Rascal).
+Adapted and modified from Anya's original version written in Rascal.
+This variant uses decision functions instead of decision tables. And
+instead of using Rascal's ADT annotations in tokens, we annotate
+ranges, HTML style.
 
 |#
 
 (require "token.rkt")
 (require "util.rkt")
 
-;; Context may also be #f.
-;; SpacerMode is a client-chosen value.
-(struct* SpacerContext
+(struct* SpcSt
          (
-          modeStack ;; stack of SpacerMode
-          nextContext ;; SpacerContext
-          nesting ;; integer
-          table ;; hash[cons[TokenCat current, TokenCat lastSeen], Decision]
-          lastSeen ;; TokenCat
+          ctx ;; current context (SpcCtx)
+          tr ;; range semantics, "bag"/multiset (list of symbol)
+          pt ;; last seen token (Token or #f)
+          pr ;; semantics for last seen token (list of symbol)
+          )
+         #:transparent #:mutable)
+         
+(struct* SpcCtx
+         (
+          backCtx ;; previous context (SpcCtx or #f)
+          f ;; decision function, yields Decision (function)
           )
          #:transparent)
 
 (data* Decision ((Insert tok) ;; Token -> Decision
-                 (EnterContext newTable) ;; rel[TokenCat, TokenCat, Decision] -> Decision (a relation is a set of tuples)
-                 (ExitContext) ;; -> Decision
+                 (EnterSt f) ;; function -> Decision
+                 (ExitSt) ;; -> Decision
                  (Nothing) ;; -> Decision
                  (Skip) ;; -> Decision
                  ))
 
-(define* (new-SpacerContext (table (hash)))
-  (SpacerContext '() #f 0 table ""))
+;; pt:: previous token (Token)
+;; pr:: previous range (list of symbol)
+;; tt:: this token (Token)
+;; tr:: this range (list of symbol)
+(define (decide-Nothing pt pr tt tr)
+  (Nothing))
 
-(define* (enter-context ctx table)
-  (struct-copy SpacerContext ctx
-               (nextContext ctx)
-               (nesting (+ (SpacerContext-nesting ctx) 1))
-               (table table)))
+(define* (new-SpcSt (f decide-Nothing))
+  (SpcSt (SpcCtx #f f) '() #f '()))
 
-(define* (exit-context ctx)
-  (let ((next (SpacerContext-nextContext ctx)))
-    (unless next
-      (error "exit-context: exiting from last context"))
-    (unless (= (SpacerContext-nesting next)
-               (- (SpacerContext-nesting ctx) 1))
-      (error "exit-context: nesting error"))
-    (unless (equal? (SpacerContext-modeStack next)
-                    (SpacerContext-modeStack ctx))
-      (error "exit-context: mode stack nesting error"))
-    next))
+(define (enter-SpcCtx! st f)
+  (let ((ctx (SpcSt-ctx st)))
+    (set-SpcSt-ctx! st (SpcCtx ctx f)))
+  st)
+
+(define (exit-SpcCtx! st)
+  (let ((ctx (SpcCtx-backCtx st)))
+    (unless ctx
+      (error "exit-SpcCtx!: exiting from last SpcCtx"))
+    (set-SpcSt-ctx! st ctx)
+    st))
 
 (define (stream-put s t)
+  (when (Space? t)
+    (set! t (Union (stream (Text (Space-s t)))
+                   (stream (Line ""))
+                   (Space-sh t))))
   (stream-append s (stream t)))
 
-;; stream, stream, SpacerContext -> stream, stream, SpacerContext
-(define* (process-token inToks outToks ctx)
-  (if (stream-empty? inToks)
-      (values inToks outToks ctx)
-      (let ((tok (stream-first inToks))
-            (inToks (stream-rest inToks)))
-        (let* ((cat (anno tok))
-               (decision (hash-ref (SpacerContext-table ctx)
-                                   (cons cat
-                                         (SpacerContext-lastSeen ctx))
-                                   #f)))
-          (if (Skip? decision)
-              (values inToks outToks ctx)
-              (begin
-                (cond
-                 ((not decision)
-                  (void))
-                 ((Insert? decision)
-                  (set! outToks (stream-put outToks (Insert-tok decision))))
-                 ((EnterContext? decision)
-                  (set! ctx (enter-context ctx (EnterContext-newTable decision))))
-                 ((ExitContext? decision)
-                  (set! ctx (exit-context ctx)))
-                 (else
-                  (error "process-token: unsupported decision" decision)))
-                (values inToks
-                        (stream-put outToks tok)
-                        (struct-copy SpacerContext ctx
-                                     (lastSeen cat)))))))))
+(define (remq/error v lst)
+  (if (null? lst)
+      (error "close annotation without open" v lst)
+      (let ((h (car lst))
+            (t (cdr lst)))
+        (if (eq? v h)
+            t
+            (cons h (remq/error v t))))))
 
-;; stream, stream, SpacerContext -> stream, stream, SpacerContext
-(define* (process-tokens inToks outToks ctx)
-  (let next ()
-    (unless (stream-empty? inToks)
-      (set!-values (inToks outToks ctx) (process-token inToks outToks ctx))
-      (next))
-    (values inToks outToks ctx)))
+(define (add-annos! st lst)
+  (set-SpcSt-tr! st (append lst (SpcSt-tr st))))
+
+(define (del-annos! st lst)
+  (let ((annos (SpcSt-tr st)))
+    (for ((a lst))
+         (set! annos (remq/error a annos)))
+    (set-SpcSt-tr! st annos)))
+
+(define (next-token! st tt)
+  (set-SpcSt-pt! st tt)
+  (set-SpcSt-pr! st (SpcSt-tr st))
+  st)
+
+;; Token, stream, SpcSt -> stream, SpcSt
+(define* (process-token! tt outToks st)
+  (cond
+   ((Anno? tt) (add-annos! st (Anno-lst tt)))
+   ((/Anno? tt) (del-annos! st (Anno-lst tt)))
+   (else
+    (let* ((pt (SpcSt-pt st))
+           (pr (SpcSt-pr st))
+           (tr (SpcSt-tr st))
+           (ctx (SpcSt-ctx st))
+           (f (SpcCtx-f ctx))
+           (dec (f pt pr tt tr)))
+      (next-token! st tt)
+      (if (Skip? dec)
+          (values outToks st)
+          (begin
+            (cond
+             ((not dec)
+              (void))
+             ((Insert? dec)
+              (set! outToks (stream-put outToks (Insert-tok dec))))
+             ((EnterSt? dec)
+              (set! st (enter-SpcCtx! st (EnterSt-f dec))))
+             ((ExitSt? dec)
+              (set! st (exit-SpcCtx! st)))
+             (else
+              (error "process-token: unsupported decision" dec)))
+            (values (stream-put outToks tt) st)))))))
+
+;; sequence, stream, SpcSt -> stream, SpcSt
+(define* (process-tokens! inToks outToks st)
+  (for ((tt inToks))
+       (set!-values (outToks st) (process-token! tt outToks st)))
+  (values outToks st))
 
 (define* (printlnTokenStream toks)
   (for ((t (in-stream toks)))
        (match t
-              ((Text a " ") (display "_"))
-              ((Text a s) (display (format "[~a]" s)))
-              ((Line a s) (display " "))
+              ((Text " ") (display "_"))
+              ((Text s) (display (format "[~a]" s)))
+              ((Line s) (display " "))
               (else (display (format " ~s " t)))))
   (newline))
