@@ -9,20 +9,20 @@
 ;;; for testing the spacer engine
 ;;; 
 
-(define (test-doc w tn t desc inToks)
-  (printfln "// ~a (t=~a, w=~a)" desc tn w)
+(define (test-doc w fn f desc inToks)
+  (printfln "// ~a (f=~a, w=~a)" desc fn w)
   (displayln (width-divider w))
-  (let ((outToks empty-stream)
-        (ctx (new-SpacerContext t)))
-    (set!-values (inToks outToks ctx)
-                 (process-tokens inToks outToks ctx))
-    (printlnTokenStream outToks)
-    (pgf-println w outToks))
+  (let ((st (new-SpcSt f)))
+    (let-values (((st outToks)
+                  (process-tokens! st inToks)))
+      (printlnTokenStream outToks)
+      (pgf-println w outToks)))
   (displayln "// ----------"))
 
-(define t-lst
+(define f-lst
   (list
-   (cons "empty" (hash))
+   (cons "empty" decide-Nothing)
+   (cons "always-space" always-Space)
    ))
 
 (define w-lst '(5 10 15 25 35 55 75))
@@ -51,8 +51,8 @@
 
 (define (main)
   (for* ((w (reverse w-lst))
-         (t t-lst)
+         (f f-lst)
          (d d-lst))
-        (test-doc w (car t) (cdr t) (car d) (cdr d))))
+        (test-doc w (car f) (cdr f) (car d) (cdr d))))
       
 (main)

@@ -39,8 +39,11 @@ ranges, HTML style.
 ;; pr:: previous range (list of symbol)
 ;; tt:: this token (Token)
 ;; tr:: this range (list of symbol)
-(define (decide-Nothing pt pr tt tr)
+(define* (decide-Nothing pt pr tt tr)
   (Nothing))
+
+(define* (always-Space pt pr tt tr)
+  (if pt (Insert (Space " " 1)) (Nothing)))
 
 (define* (new-SpcSt (f decide-Nothing))
   (SpcSt (SpcCtx #f f) '() #f '()))
@@ -58,11 +61,13 @@ ranges, HTML style.
     st))
 
 (define (stream-put s t)
-  (when (Space? t)
-    (set! t (Union (stream (Text (Space-s t)))
-                   (stream (Line ""))
-                   (Space-sh t))))
-  (stream-append s (stream t)))
+  ;; Better avoid set! here as 'stream' is a lazy construct.
+  (let ((t 
+         (if (Space? t)
+             (Union (stream (Text (Space-s t)))
+                    (stream (Line ""))
+                    (Space-sh t)) t)))
+    (stream-append s (stream t))))
 
 (define (remq/error v lst)
   (if (null? lst)
@@ -87,11 +92,13 @@ ranges, HTML style.
   (set-SpcSt-pr! st (SpcSt-tr st))
   st)
 
-;; Token, stream, SpcSt -> stream, SpcSt
-(define* (process-token! tt outToks st)
+;; SpcSt, Token, stream -> SpcSt, stream
+(define* (process-token! st tt outToks)
   (cond
-   ((Anno? tt) (add-annos! st (Anno-lst tt)))
-   ((/Anno? tt) (del-annos! st (Anno-lst tt)))
+   ((Anno? tt)
+    (values (add-annos! st (Anno-lst tt)) outToks))
+   ((/Anno? tt)
+    (values (del-annos! st (Anno-lst tt)) outToks))
    (else
     (let* ((pt (SpcSt-pt st))
            (pr (SpcSt-pr st))
@@ -101,10 +108,10 @@ ranges, HTML style.
            (dec (f pt pr tt tr)))
       (next-token! st tt)
       (if (Skip? dec)
-          (values outToks st)
+          (values st outToks)
           (begin
             (cond
-             ((not dec)
+             ((Nothing? dec)
               (void))
              ((Insert? dec)
               (set! outToks (stream-put outToks (Insert-tok dec))))
@@ -113,14 +120,14 @@ ranges, HTML style.
              ((ExitSt? dec)
               (set! st (exit-SpcCtx! st)))
              (else
-              (error "process-token: unsupported decision" dec)))
-            (values (stream-put outToks tt) st)))))))
+              (error "process-token!: unsupported decision" dec)))
+            (values st (stream-put outToks tt))))))))
 
-;; sequence, stream, SpcSt -> stream, SpcSt
-(define* (process-tokens! inToks outToks st)
+;; SpcSt, sequence, stream -> SpcSt, stream
+(define* (process-tokens! st inToks (outToks empty-stream))
   (for ((tt inToks))
-       (set!-values (outToks st) (process-token! tt outToks st)))
-  (values outToks st))
+       (set!-values (st outToks) (process-token! st tt outToks)))
+  (values st outToks))
 
 (define* (printlnTokenStream toks)
   (for ((t (in-stream toks)))

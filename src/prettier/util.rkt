@@ -107,6 +107,23 @@
        (provide (except-out (struct-out nm) nm))
        (data-for* nm lst)))))
 
+(define-syntax data-for/prefab*
+  (syntax-rules ()
+    ((_ nm ())
+     (void))
+    ((_ nm ((ctor fld ...) more ...))
+     (begin
+       (struct* ctor nm (fld ...) #:prefab)
+       (data-for/prefab* nm (more ...))))))
+
+(define-syntax* data/prefab*
+  (syntax-rules ()
+    ((_ nm lst)
+     (begin
+       (struct nm () #:prefab)
+       (provide (except-out (struct-out nm) nm))
+       (data-for/prefab* nm lst)))))
+
 (define-syntax* fix
   (syntax-rules ()
     ((_ fn arg ...)

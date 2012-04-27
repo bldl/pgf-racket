@@ -173,6 +173,14 @@
 (define (FmtSt-eof? st) ;; FmtSt -> boolean
   (stream-empty? (FmtSt-inDoc st)))
 
+;; Adds a stream to input.
+(define* (FmtSt-write st s) ;; FmtSt, stream of Token -> St
+  (struct-copy FmtSt st (inDoc (stream-append (FmtSt-inDoc st) s))))
+
+;; Adds a token to input.
+(define* (FmtSt-put st t) ;; FmtSt, Token -> St
+  (FmtSt-write st (stream t)))
+
 ;; Processes tokens for as long as there is input.
 (define (process-tokens st) ;; FmtSt -> FmtSt
   (let loop ((st st))
