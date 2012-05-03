@@ -28,8 +28,10 @@
 
 (define* ex (Nest (LvPop)))
 
-(define* (br (hyphen ""))
-  (Line hyphen))
+(define* (br (hyphen #f))
+  (if hyphen
+      (stream (Text hyphen) (Line))
+      (Line)))
 
 (define* nbsp (Text " "))
 

@@ -19,12 +19,12 @@
 
 (define d-lst
   (let* (
-         (d1 (stream (Text "first") (Line "")
-                     (Text "second") (Line "")
-                     (Text "third") (Line "")
+         (d1 (stream (Text "first") (Line)
+                     (Text "second") (Line)
+                     (Text "third") (Line)
                      (Text "fourth")))
-         (d2 (stream (Text "foobar") (Nest (LvInc 4)) (Line "")
-                     (Text "baz") (Nest (LvPop)) (Line "")
+         (d2 (stream (Text "foobar") (Nest (LvInc 4)) (Line)
+                     (Text "baz") (Nest (LvPop)) (Line)
                      (Text "bamf")))
          (pop (Nest (LvPop)))
          (d4 (list/st
@@ -34,7 +34,7 @@
                (sequence->stream 
                 (add-between
                  (map (compose Text number->string) (for/list ((i 10)) i))
-                 (Line "")))) ex
+                 (Line)))) ex
               (Text ")")))
          )
     (list

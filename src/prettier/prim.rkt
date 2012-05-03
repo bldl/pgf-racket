@@ -132,24 +132,16 @@
                       (struct-copy FmtSt st (inDoc inDoc)
                                    (k k) (outDoc (stream-put outDoc d)))))))
              ((Line? d)
-              ;; This construct may cause a column increase, and we'll
-              ;; backtrack if necessary and possible, even though there's no
-              ;; further input for the line. If this fits, though, then we're
-              ;; committed, and won't backtrack from here.
-              (let ((s (Line-s d)))
-                (let ((k (+ k (string-length s)))
-                      (bt (FmtSt-bt st)))
-                  (if (and bt (> k w))
-                      bt ;; backtrack
-                      (struct-copy FmtSt st (inDoc inDoc)
-                                   (k (string-length i))
-                                   (bt #f)
-                                   (outDoc
-                                    (stream-append outDoc
-                                                   (stream
-                                                    (Text s)
-                                                    (Text "\n")
-                                                    (Text i)))))))))
+              ;; A break always fits, and then we're committed, and
+              ;; won't backtrack from here.
+              (struct-copy FmtSt st (inDoc inDoc)
+                           (k (string-length i))
+                           (bt #f)
+                           (outDoc
+                            (stream-append outDoc
+                                           (stream
+                                            (Text "\n")
+                                            (Text i))))))
              ((Union? d)
               ;; Pick left option, leave right for backtracking.
               (let ((l (Union-l d))

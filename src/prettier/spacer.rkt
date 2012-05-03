@@ -65,7 +65,7 @@ ranges, HTML style.
   (let ((t 
          (if (Space? t)
              (Union (stream (Text (Space-s t)))
-                    (stream (Line ""))
+                    (stream (Line))
                     (Space-sh t)) t)))
     (stream-append s (stream t))))
 
@@ -134,6 +134,6 @@ ranges, HTML style.
        (match t
               ((Text " ") (display "_"))
               ((Text s) (display (format "[~a]" s)))
-              ((Line s) (display " "))
+              ((Line) (display " "))
               (else (display (format " ~s " t)))))
   (newline))
