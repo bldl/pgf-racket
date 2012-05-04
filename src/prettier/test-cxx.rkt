@@ -2,6 +2,7 @@
 
 (require "hl.rkt")
 (require "prim.rkt")
+(require "token.rkt")
 (require "util.rkt")
 
 ;;; 
@@ -66,58 +67,46 @@
 ;;; Pretty printing configuration
 ;;; 
 
-;; Value to use for 'strong' UNIONs.
-(define strong (make-parameter 1))
-
-;; Value to use for 'weak' UNIONs.
-(define weak (make-parameter 4/5))
-
 ;; Default line break.
 (define current-line (make-parameter (Line)))
 
-;; Default strength for UNIONs.
-(define current-strength (make-parameter strong))
-
 ;; Choice construct. (Default strength.)
 (define (union/current l r)
-  (private-union l r (current-strength)))
+  (union l r 1))
 
 ;; Choice construct. (Strong, push all the way to margin.)
 (define (union/strong l r)
-  (private-union l r strong))
+  (union l r 1))
 
 ;; Choice construct. (Weak.)
 (define (union/weak l r)
-  (private-union l r weak))
+  (union l r 0.7))
 
 ;; Forced linebreak. Might have a suffix.
-(define (ln)
+(define (br/current)
   (current-line))
 
-;; Non-breakable space.
-(define (nbsp)
-  (text " "))
-
 ;; Breakable space.
-(define (sp)
-  (union/current (text " ") (current-line)))
+(define (sp/current)
+  (union/current (Text " ") (current-line)))
 (define (sp/strong)
-  (union/strong (text " ") (current-line)))
+  (union/strong (Text " ") (current-line)))
 (define (sp/weak)
-  (union/weak (text " ") (current-line)))
+  (union/weak (Text " ") (current-line)))
 
 ;; Breakable point.
-(define (br)
-  (union/current (nil) (current-line)))
-(define (br/strong)
-  (union/strong (nil) (current-line)))
-(define (br/weak)
-  (union/weak (nil) (current-line)))
+(define (breakable/current)
+  (union/current empty-stream (current-line)))
+(define (breakable/strong)
+  (union/strong empty-stream (current-line)))
+(define (breakable/weak)
+  (union/weak empty-stream (current-line)))
 
 (define-syntax-rule
   (in-cpp body ...)
-  (parameterize ((current-line (line " \\"))) body ...))
+  (parameterize ((current-line (cat " \\" (Line)))) body ...))
 
+#|
 (define-syntax-rule
   (weaken body ...)
   (parameterize ((current-strength weak)) body ...))
@@ -125,19 +114,14 @@
 (define-syntax-rule
   (strengthen body ...)
   (parameterize ((current-strength strong)) body ...))
+|#
 
 ;;; 
 ;;; Pretty printing utilities
 ;;; 
 
-(define (ind doc)
-  (nest 2 doc))
-
-(define (cat . lst)
-  (apply concat (filter identity lst)))
-
-(define (cat/str . args)
-  (apply cat (map (lambda (x) (if (string? x) (text x) x)) args)))
+(define (ind x)
+  (cat (indent 2) x dedent))
 
 (define (ind-cat . args)
   (ind (apply cat args)))
@@ -165,46 +149,47 @@
             (set! lst (cons elem lst)))
           (recur (- n 1) elem))))
     (if (null? lst)
-        (nil)
-        (apply concat (reverse lst)))))
+        empty-stream
+        (apply cat (reverse lst)))))
 
 (define (fill/weak lst)
-  (folddoc (lambda (x y) (concat x (sp/weak) y)) lst))
+  (sep-by (sp/weak) lst))
 
 ;;; 
 ;;; C++ specific pretty printing
 ;;; 
 
 (define (parens doc)
-  (concat (text "(") (br) doc (br) (text ")")))
+  (cat (Text "(") (breakable/current) doc (breakable/current) (Text ")")))
 
-(define (semi) (text ";"))
+(define (semi) (Text ";"))
+
+(define (bracket l x r)
+  (group (cat l (indent 2) br x br r)))
 
 (define (bracket/br l x r)
-  (group (concat (text l)
-                 (nest 2 (concat (br) x))
-                 (br)
-                 (text r))))
+  (group (cat (Text l)
+                 (nest 2 (cat (breakable/current) x))
+                 (breakable/current)
+                 (Text r))))
 
 (define (cpp-if c t (e #f))
    (cat
-    (in-cpp (concat (text "#if") (sp) c)) (ln)
-    t (ln)
-    (and e (concat (text "#else") (ln)
-                   e (ln)))
-    (text "#endif")))
+    (in-cpp (cat (Text "#if") (sp/current) c)) (br/current)
+    t (br/current)
+    (and e (cat (Text "#else") (br/current)
+                   e (br/current)))
+    (Text "#endif")))
 
 (define (c-block doc)
-  (concat
-   (nest 2 (concat
-            (text "{") (line)
-            doc)) (line)
-   (text "}")))
+  (cat
+   (nest 2 (cat
+            (Text "{") (Line)
+            doc)) (Line)
+   (Text "}")))
 
 (define (stack/2-ln doc)
-  (define (</> x y)
-    (concat x (line) (line) y))
-  (folddoc </> doc))
+  (sep-by (stream (Line) (Line)) doc))
 
 ;; Puts opening "{" on a separate line (following any 'pre').
 (define (indented-block #:pre (pre #f)
@@ -212,59 +197,58 @@
                         #:body-elems (body-elems '())
                         #:post (post #f))
   (cat
-   pre (line)
-   (text "{")
+   pre (Line)
+   (Text "{")
    (if body
-       (ind-cat (line) body)
+       (ind-cat (Line) body)
        (and (not (null? body-elems))
-            (ind-cat (line) (stack/2-ln body-elems))))
-   (line) (text "}") post))
+            (ind-cat (Line) (stack/2-ln body-elems))))
+   (Line) (Text "}") post))
 
 (define (c-struct name members)
-  (let ((pre (cat (text "struct") (sp) name)))
+  (let ((pre (cat (Text "struct") (sp/current) name)))
     (indented-block #:pre pre
                     #:body-elems members
-                    #:post (text ";"))))
+                    #:post (Text ";"))))
 
 (define (c-int n)
-  (text (number->string n)))
+  (Text (number->string n)))
 
 (define (maybe-parens yes? doc)
   (if yes?
-      (concat (text "(") doc (text ")"))
+      (cat (Text "(") doc (Text ")"))
       doc))
 
 (define (infix op)
-  (concat (sp/strong) (text op) (sp/weak)))
+  (cat (sp/strong) (Text op) (sp/weak)))
 
 (define (c-add-expr exprs ctx)
   (let ((sep (infix "+")))
     (maybe-parens
      (not (eq? ctx 'outer))
-     (folddoc (lambda (x y)
-                (concat x sep y)) exprs))))
+     (sep-by sep exprs))))
 
 (define (c-if-expr c t e ctx)
   (maybe-parens (eq? ctx 'inner)
-                (concat c (infix "?") t (infix ":") e)))
+                (cat c (infix "?") t (infix ":") e)))
 
 (define (c-call-expr n args)
-  (let* ((xs (add-between args (concat (text ",") (line))))
-         (x (apply concat xs)))
-    (concat n (br) (text "(")
-            (align (group x)) (text ")"))))
+  (let* ((xs (add-between args (cat (Text ",") (Line))))
+         (x (apply cat xs)))
+    (cat n (breakable/current) (Text "(")
+            align (group x) dedent (Text ")"))))
 
 (define (c-qual-type-inst n args)
   (let* ((xs (map/skip-last
               (lambda (x)
-                (concat x (text ",")))
+                (cat x (Text ",")))
               args))
          (x (fill/weak xs)))
-    (concat n (br) (text "{")
-            (align x) (text "}"))))
+    (cat n (breakable/current) (Text "{")
+            align x dedent (Text "}"))))
 
 (define (c-expr-stmt expr)
-  (concat expr (text ";")))
+  (cat expr (Text ";")))
 
 ;; Chooses formatting for the second block according to how the
 ;; formatting of the first block ends up fitting.
@@ -272,56 +256,56 @@
   (cat
    (and pre (ind pre))
    (private-union
-    (cat (text " {")
-         (and body-1 (ind-cat (line) body-1))
-         (line) (text "}")
+    (cat (Text " {")
+         (and body-1 (ind-cat (Line) body-1))
+         (Line) (Text "}")
          (and body-2
-              (cat (sp) mid (sp) (text "{")
-                   (ind-cat (line) body-2)
-                   (line) (text "}"))))
-    (cat (line) (text "{")
-         (and body-1 (ind-cat (line) body-1))
-         (line) (text "}")
+              (cat (sp/current) mid (sp/current) (Text "{")
+                   (ind-cat (Line) body-2)
+                   (Line) (Text "}"))))
+    (cat (Line) (Text "{")
+         (and body-1 (ind-cat (Line) body-1))
+         (Line) (Text "}")
          (and body-2
-              (cat (line) mid (line) (text "{")
-                   (ind-cat (line) body-2)
-                   (line) (text "}")))))))
+              (cat (Line) mid (Line) (Text "{")
+                   (ind-cat (Line) body-2)
+                   (Line) (Text "}")))))))
 
 (define (c-if-stmt c t-lst (e-lst '()))
   (two-block
-   (concat (text "if (") c (text ")"))
+   (cat (Text "if (") c (Text ")"))
    (and (not (null? t-lst)) (stack t-lst))
-   (text "else")
+   (Text "else")
    (and (not (null? e-lst)) (stack e-lst))))
 
 (define (c-func modifs rtype name params stmts #:doc (doc-s #f))
   (cat
-   (and doc-s (concat (c-block-comment doc-s) (line)))
+   (and doc-s (cat (c-block-comment doc-s) (Line)))
    (ind-cat (and (not (null? modifs))
-                 (apply concat
+                 (apply cat
                         (map (lambda (modif)
-                               (concat modif (sp))) modifs)))
-            (and rtype (concat rtype (sp)))
+                               (cat modif (sp/current))) modifs)))
+            (and rtype (cat rtype (sp/current)))
             name
             (if (null? params)
-                (text "()")
+                (Text "()")
                 (bracket/br "("
-                            (apply concat
+                            (apply cat
                                    (add-between params
-                                                (concat (text ",") (line))))
+                                                (cat (Text ",") (Line))))
                             ")")))
-   (line)
-   (text "{")
+   (Line)
+   (Text "{")
    (and (not (null? stmts))
-        (ind-cat (line)
+        (ind-cat (Line)
                  (stack stmts)))
-   (line) (text "}")))
+   (Line) (Text "}")))
 
 (define (c-line-comment s)
-  (concat (text "// ") (nest/str "// " (fillwords s))))
+  (cat (Text "// ") (nest/str "// " (fillwords s))))
 
 (define (c-block-comment s)
-  (concat (text "/** ") (align (fillwords s)) (text " */")))
+  (cat (Text "/** ") align (fillwords s) dedent (Text " */")))
 
 ;;; 
 ;;; C++ test data generator
@@ -334,20 +318,20 @@
          (pfx-len (string-length pfx))
          (min-len (- min pfx-len))
          (max-len (- max pfx-len)))
-    (text
+    (Text
      (string-append pfx
                     (random-string/readable (random/from-range min-len max-len)
                                    (cons underscore lower-lst))))))
 
 (define (random-funname #:min (min-len 10)
                         #:max (max-len 15))
-  (text
+  (Text
    (random-string/readable (random/from-range min-len max-len)
                   (cons underscore (cons underscore lower-lst)))))
 
 (define (random-cpp-varname #:min (min-len 10)
                             #:max (max-len 15))
-  (text
+  (Text
    (random-string/readable (random/from-range min-len max-len)
                   (cons underscore
                         (cons underscore upper-lst)))))
@@ -360,14 +344,14 @@
          (min-len (- min pfx-len))
          (max-len (- max pfx-len))
          (lst (cons underscore lower-lst)))
-    (text
+    (Text
      (string-append pfx
                     (random-string/readable
                      (random/from-range min-len max-len) lst)))))
 
 (define (random-qual (count (+ 1 (random 2))))
   (times/cat count
-             (concat (random-namespace-name) (text "::") (br))))
+             (cat (random-namespace-name) (Text "::") (breakable/current))))
 
 (define (random-typename (depth 1)
                          #:min (min 5)
@@ -382,7 +366,7 @@
     (cat
      (and ref (one-in-three?)
           (random-qual))
-     (text
+     (Text
       (string-append pfx
                      (random-string/readable
                       (random/from-range min-len max-len) lst)))
@@ -390,34 +374,34 @@
           (let* ((n (random/from-range 1 4))
                  (args (times/sep/cat n
                                       (random-typename (+ depth 1) #:ref #t)
-                                      (concat (text ",") (line)))))
+                                      (cat (Text ",") (Line)))))
             (bracket "<" args ">"))))))
 
 (define (random-cpp-expr (depth 1))
   (define (f/br s1 doc s2)
-    (concat (text s1) (br) doc (br) (text s2)))
+    (cat (Text s1) (breakable/current) doc (breakable/current) (Text s2)))
   (define outer? (eqv? depth 1))
   (in-cpp
    (random-case/scored
-     (int 5 (text (number->string (random 1000))))
+     (int 5 (Text (number->string (random 1000))))
      (var 4 (random-cpp-varname))
      (defined 2 (f/br "defined(" (random-cpp-varname) ")"))
      (not 2 (if outer?
-                (cat/str "!" (random-cpp-expr (+ depth 1)))
-                (cat/str "(!" (random-cpp-expr (+ depth 1)) ")")))
+                (cat "!" (random-cpp-expr (+ depth 1)))
+                (cat "(!" (random-cpp-expr (+ depth 1)) ")")))
      (and (- 7 depth)
-          (cat/str "("
+          (cat "("
              (times/sep/cat
               (random/from-range 2 4)
               (random-cpp-expr (+ depth 1))
-              (concat (sp) (text "&&") (sp)))
+              (cat (sp/current) (Text "&&") (sp/current)))
              ")"))
      )))
 
 (define (random-cpp-var-decl)
   (in-cpp
-   (ind-cat (text "#define") (sp)
-            (random-cpp-varname) (sp)
+   (ind-cat (Text "#define") (sp/current)
+            (random-cpp-varname) (sp/current)
             (random-cpp-expr))))
 
 (define-syntax random-case/scored
@@ -443,13 +427,13 @@
         (else (error "mismatch" k)))))))
 
 (define (random-vardecl ctx)
-  (ind-cat (and (eq? ctx 'tl) (concat (text "static") (sp)))
-           (random-typename) (sp) (random-varname) (semi)))
+  (ind-cat (and (eq? ctx 'tl) (cat (Text "static") (sp/current)))
+           (random-typename) (sp/current) (random-varname) (semi)))
 
 (define (random-typedef)
-  (ind-cat (text "typedef") (sp)
-           (random-typename #:ref #t) (sp)
-           (random-typename #:args-ok #f) (text ";")))
+  (ind-cat (Text "typedef") (sp/current)
+           (random-typename #:ref #t) (sp/current)
+           (random-typename #:args-ok #f) (Text ";")))
 
 (define (random-struct depth)
   (c-struct (random-typename #:args-ok #f)
@@ -487,7 +471,7 @@
   (random-case/scored
    (comment 1 (c-line-comment (random-sentence)))
    (var 4 (random-vardecl 'local))
-   (return 2 (text "return;"))
+   (return 2 (Text "return;"))
    (expr 4 (c-expr-stmt (random-call)))
    (if (- 5 depth)
        (c-if-stmt (random-expr #:int? #t)
@@ -502,9 +486,9 @@
 
 (define (random-func ctx)
   (c-func (if (eq? ctx 'tl)
-              (list (text "static"))
+              (list (Text "static"))
               '()) ;; modifiers
-          (text "void") ;; return type
+          (Text "void") ;; return type
           (random-funname) ;; function name
           '() ;; parameters
           (let ((n (random/from-range 0 6)))
@@ -526,10 +510,10 @@
 
 (define (random-compilation-unit)
   (let ((n (random/from-range 7 12)))
-    (apply concat
+    (apply cat
            (add-between
             (times/list n (random-decl 'tl 1))
-            (concat (line) (line))))))
+            (cat (Line) (Line))))))
 
 ;;; 
 ;;; Test data
@@ -537,14 +521,14 @@
 
 (define d-lst
   (let* (
-         (true-1 (text "true"))
-         (break-1 (text "break;"))
-         (continue-1 (text "continue;"))
+         (true-1 (Text "true"))
+         (break-1 (Text "break;"))
+         (continue-1 (Text "continue;"))
          (if-1 (c-if-stmt true-1 (list break-1) (list continue-1)))
          ;;(cpp-1 (cpp-if-else "1" break-1 continue-1))
          )
     (list
-     ;;(cons "type instantiation" (c-qual-type-inst (text "T") (list (text "1") (text "2") (text "3") (text "4"))))
+     ;;(cons "type instantiation" (c-qual-type-inst (Text "T") (list (Text "1") (Text "2") (Text "3") (Text "4"))))
      ;;(cons "function declaration" (random-func 'tl))
      ;;(cons "line comment" (c-line-comment "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. Sed sit amet ipsum mauris. Maecenas congue ligula ac quam viverra nec consectetur ante hendrerit."))
      ;;(cons "block comment" (c-block-comment "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec a diam lectus. Sed sit amet ipsum mauris. Maecenas congue ligula ac quam viverra nec consectetur ante hendrerit."))
@@ -556,12 +540,12 @@
      ;;(cons "CPP expression" (random-cpp-expr))
      (cons "random compilation unit" (random-compilation-unit))
      ;;(cons "top-level declaration" (random-decl 'tl 1))
-     ;;(cons "empty struct" (c-struct (text "EmptyStruct") (list)))
-     ;;(cons "struct with one member" (c-struct (text "SmallStruct") (list (random-vardecl 'member))))
-     ;; (cons "nothing" (nil))
+     ;;(cons "empty struct" (c-struct (Text "EmptyStruct") (list)))
+     ;;(cons "struct with one member" (c-struct (Text "SmallStruct") (list (random-vardecl 'member))))
+     ;; (cons "nothing" empty-stream)
      ;; (cons "break statement" break-1)
      ;; (cons "nested if statement with complex condition" (c-if-stmt (fillwords "1 && 2 && 1==2 && defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__") if-1))
-     ;; (cons "#if-else" (cpp-if-else "defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__" (text "return 1;") (text "return 2;")))
+     ;; (cons "#if-else" (cpp-if-else "defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__" (Text "return 1;") (Text "return 2;")))
      ;; (cons "nested CPP" (c-if-stmt true-1 cpp-1))
      )))
 
@@ -571,20 +555,17 @@
 ;;; Test runner
 ;;; 
 
-(define (test-doc w t d weak?)
-  (printfln "// ~a (w=~a) ~a" t w (if weak? "weak" "strong"))
-  ;;(writeln (DOC-to-sexp d))
-  ;;(writeln (DOC-to-string d))
+(define (test-doc w t d)
+  (printfln "// ~a (w=~a)" t w)
+  ;;(for ((d d)) (write d))
   (displayln (width-divider w))
-  (parameterize ((weak (if weak? 4/5 1)))
-    (displayln (pretty w d)))
+  (pgf-println w d)
   (displayln "// ----------"))
 
 (define (main)
   (displayln "// -*- c++ -*-")
   (for* ((w (reverse w-lst))
-         (d d-lst)
-         (weak? '(#f #t)))
-        (test-doc w (car d) (cdr d) weak?)))
+         (d d-lst))
+        (test-doc w (car d) (cdr d))))
       
 (main)
