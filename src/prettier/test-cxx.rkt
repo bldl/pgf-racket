@@ -70,17 +70,24 @@
 ;; Default line break.
 (define current-line (make-parameter (Line)))
 
-;; Choice construct. (Default strength.)
-(define (union/current l r)
-  (union l r 1))
+(define weak-f (make-parameter default-strength))
+(define strong-f (make-parameter default-strength))
+
+(define (weak-sh cw i k)
+  ((weak-f) cw i k))
+  
+(define (strong-sh cw i k)
+  ((strong-f) cw i k))
+
+(define union/default union)
 
 ;; Choice construct. (Strong, push all the way to margin.)
 (define (union/strong l r)
-  (union l r 1))
+  (union l r strong-sh))
 
 ;; Choice construct. (Weak.)
 (define (union/weak l r)
-  (union l r 0.7))
+  (union l r weak-sh))
 
 ;; Forced linebreak. Might have a suffix.
 (define (br/current)
@@ -88,7 +95,7 @@
 
 ;; Breakable space.
 (define (sp/current)
-  (union/current (Text " ") (current-line)))
+  (union/default (Text " ") (current-line)))
 (define (sp/strong)
   (union/strong (Text " ") (current-line)))
 (define (sp/weak)
@@ -96,7 +103,7 @@
 
 ;; Breakable point.
 (define (breakable/current)
-  (union/current empty-stream (current-line)))
+  (union/default empty-stream (current-line)))
 (define (breakable/strong)
   (union/strong empty-stream (current-line)))
 (define (breakable/weak)
@@ -551,21 +558,29 @@
 
 (define w-lst '(5 10 15 25 35 45 55 65 75))
 
+(define sh-lst
+  (list
+   (cons "default" (thunk (weak-f default-strength)
+                          (strong-f default-strength)))
+   ))
+
 ;;; 
 ;;; Test runner
 ;;; 
 
-(define (test-doc w t d)
-  (printfln "// ~a (w=~a)" t w)
+(define (test-doc w t d sh-t sh-f)
+  (printfln "// ~a (w=~a, sh=~a)" t w sh-t)
   ;;(for ((d d)) (write d))
   (displayln (width-divider w))
+  (sh-f)
   (pgf-println w d)
   (displayln "// ----------"))
 
 (define (main)
   (displayln "// -*- c++ -*-")
   (for* ((w (reverse w-lst))
-         (d d-lst))
-        (test-doc w (car d) (cdr d))))
+         (d d-lst)
+         (sh sh-lst))
+        (test-doc w (car d) (cdr d) (car sh) (cdr sh))))
       
 (main)

@@ -141,7 +141,7 @@
                        (struct-copy FmtSt st
                                     (inDoc (stream-append r inDoc)))))
                   (struct-copy FmtSt st
-                               (w (* (FmtSt-cw st) sh))
+                               (w (sh (FmtSt-cw st) i k))
                                (inDoc
                                 (stream-append l (stream-cons (Width w) inDoc)))
                                (bt r-st)))))
@@ -230,7 +230,8 @@
 ;;; grouping construct
 ;;; 
 
-(define* default-strength 1)
+(define* (default-strength cw i k)
+  cw)
 
 ;; l:: left choice (stream of Token)
 ;; r:: right choice (stream of Token)

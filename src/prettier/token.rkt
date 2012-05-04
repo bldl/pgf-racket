@@ -19,7 +19,7 @@
 (data* Token ((Nest lv) ;; Lv -> Token
               (Text s) ;; string -> Token
               (Line) ;; -> Token
-              (Union l r sh) ;; stream, stream, rational -> Token
+              (Union l r sh) ;; stream, stream, function -> Token
               (Width w) ;; rational -> Token
               (Space s sh) ;; string, rational -> Token
               (Anno lst) ;; list of symbol -> Token
