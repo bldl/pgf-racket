@@ -79,7 +79,7 @@
 (define current-strength (make-parameter strong))
 
 ;; Choice construct. (Default strength.)
-(define (union l r)
+(define (union/current l r)
   (private-union l r (current-strength)))
 
 ;; Choice construct. (Strong, push all the way to margin.)
@@ -100,7 +100,7 @@
 
 ;; Breakable space.
 (define (sp)
-  (union (text " ") (current-line)))
+  (union/current (text " ") (current-line)))
 (define (sp/strong)
   (union/strong (text " ") (current-line)))
 (define (sp/weak)
@@ -108,7 +108,7 @@
 
 ;; Breakable point.
 (define (br)
-  (union (nil) (current-line)))
+  (union/current (nil) (current-line)))
 (define (br/strong)
   (union/strong (nil) (current-line)))
 (define (br/weak)

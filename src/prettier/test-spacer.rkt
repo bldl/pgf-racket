@@ -3,6 +3,7 @@
 (require "prim.rkt")
 (require "spacer.rkt")
 (require "token.rkt")
+(require "hl.rkt")
 (require "util.rkt")
 
 ;;; 

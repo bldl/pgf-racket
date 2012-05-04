@@ -17,20 +17,8 @@
     (error "to-token-stream: unsupported" x))))
 
 (define* (cat . xs)
-  (foldl
-   (lambda (x r)
-     (cond
-      ((stream? x) (stream-append r x))
-      ((Token? x) (stream-append r (stream x)))
-      ((string? x) (stream-append r (stream (Text x))))
-      (else
-       (error "cat: unsupported" x))))
-   empty-stream xs))
-
-;; A list of streams or tokens. Gives a stream.
-;; xxx implement 'cat' like this
-(define* (list/st . xs)
-  (apply stream-append (map (lambda (x) (if (stream? x) x (stream x))) xs)))
+  (apply stream-append
+         (map to-token-stream xs)))
 
 (define* (union l r (sh default-strength))
   (stream (Union (to-token-stream l)

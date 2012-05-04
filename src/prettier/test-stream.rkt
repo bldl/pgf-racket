@@ -27,7 +27,7 @@
                      (Text "baz") (Nest (LvPop)) (Line)
                      (Text "bamf")))
          (pop (Nest (LvPop)))
-         (d4 (list/st
+         (d4 (cat
               (Text "'") (Text "(")
               align
               (group
