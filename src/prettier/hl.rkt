@@ -28,8 +28,8 @@
 (define* (flatten x) ;; stream-like -> stream
   (private-flatten (to-token-stream x)))
 
-(define* (group x) ;; stream-like -> stream
-  (stream (private-group (to-token-stream x))))
+(define* (group x (sh default-strength)) ;; stream-like -> stream
+  (stream (private-group (to-token-stream x) sh)))
 
 (define* br (Line))
 
@@ -97,12 +97,6 @@
   (concat x (line) y))
 
 (define* spread (fix folddoc <+>))
-
-(define* (bracket l x r)
-  (group (concat (text l)
-                 (nest 2 (concat (line) x))
-                 (line)
-                 (text r))))
 
 (define* (<+/> x y)
   (concat x (private-union (text " ") (line)) y))

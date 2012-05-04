@@ -257,5 +257,6 @@
          (else
           (stream-cons t (private-flatten ts)))))))
 
-(define* (private-group ts) ;; stream of Token -> Token
-  (private-union (private-flatten ts) ts))
+ ;; stream of Token -> Token
+(define* (private-group ts (sh default-strength))
+  (private-union (private-flatten ts) ts sh))

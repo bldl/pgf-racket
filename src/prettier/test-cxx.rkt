@@ -71,11 +71,15 @@
 (define current-line (make-parameter (Line)))
 
 (define weak-f (make-parameter default-strength))
+(define medium-f (make-parameter default-strength))
 (define strong-f (make-parameter default-strength))
 
 (define (weak-sh cw i k)
   ((weak-f) cw i k))
   
+(define (medium-sh cw i k)
+  ((medium-f) cw i k))
+
 (define (strong-sh cw i k)
   ((strong-f) cw i k))
 
@@ -84,6 +88,10 @@
 ;; Choice construct. (Strong, push all the way to margin.)
 (define (union/strong l r)
   (union l r strong-sh))
+
+;; Choice construct.
+(define (union/medium l r)
+  (union l r medium-sh))
 
 ;; Choice construct. (Weak.)
 (define (union/weak l r)
@@ -98,6 +106,8 @@
   (union/default (Text " ") (current-line)))
 (define (sp/strong)
   (union/strong (Text " ") (current-line)))
+(define (sp/medium)
+  (union/medium (Text " ") (current-line)))
 (define (sp/weak)
   (union/weak (Text " ") (current-line)))
 
@@ -106,6 +116,8 @@
   (union/default empty-stream (current-line)))
 (define (breakable/strong)
   (union/strong empty-stream (current-line)))
+(define (breakable/medium)
+  (union/medium empty-stream (current-line)))
 (define (breakable/weak)
   (union/weak empty-stream (current-line)))
 
@@ -167,22 +179,16 @@
 ;;; 
 
 (define (parens doc)
-  (cat (Text "(") (breakable/current) doc (breakable/current) (Text ")")))
+  (cat (Text "(") (breakable/strong) doc (breakable/strong) (Text ")")))
 
 (define (semi) (Text ";"))
 
 (define (bracket l x r)
-  (group (cat l (indent 2) br x br r)))
-
-(define (bracket/br l x r)
-  (group (cat (Text l)
-                 (nest 2 (cat (breakable/current) x))
-                 (breakable/current)
-                 (Text r))))
+  (group (cat l (indent 2) br x dedent br r) strong-sh))
 
 (define (cpp-if c t (e #f))
    (cat
-    (in-cpp (cat (Text "#if") (sp/current) c)) (br/current)
+    (in-cpp (cat (Text "#if") (sp/medium) c)) (br/current)
     t (br/current)
     (and e (cat (Text "#else") (br/current)
                    e (br/current)))
@@ -213,7 +219,7 @@
    (Line) (Text "}") post))
 
 (define (c-struct name members)
-  (let ((pre (cat (Text "struct") (sp/current) name)))
+  (let ((pre (cat (Text "struct") (sp/strong) name)))
     (indented-block #:pre pre
                     #:body-elems members
                     #:post (Text ";"))))
@@ -242,8 +248,8 @@
 (define (c-call-expr n args)
   (let* ((xs (add-between args (cat (Text ",") (Line))))
          (x (apply cat xs)))
-    (cat n (breakable/current) (Text "(")
-            align (group x) dedent (Text ")"))))
+    (cat n (breakable/medium) (Text "(")
+            align (group x strong-sh) dedent (Text ")"))))
 
 (define (c-qual-type-inst n args)
   (let* ((xs (map/skip-last
@@ -251,7 +257,7 @@
                 (cat x (Text ",")))
               args))
          (x (fill/weak xs)))
-    (cat n (breakable/current) (Text "{")
+    (cat n (breakable/weak) (Text "{")
             align x dedent (Text "}"))))
 
 (define (c-expr-stmt expr)
@@ -262,12 +268,12 @@
 (define (two-block pre body-1 mid (body-2 #f))
   (cat
    (and pre (ind pre))
-   (private-union
+   (union/default
     (cat (Text " {")
          (and body-1 (ind-cat (Line) body-1))
          (Line) (Text "}")
          (and body-2
-              (cat (sp/current) mid (sp/current) (Text "{")
+              (cat (sp/medium) mid (sp/medium) (Text "{")
                    (ind-cat (Line) body-2)
                    (Line) (Text "}"))))
     (cat (Line) (Text "{")
@@ -291,16 +297,16 @@
    (ind-cat (and (not (null? modifs))
                  (apply cat
                         (map (lambda (modif)
-                               (cat modif (sp/current))) modifs)))
-            (and rtype (cat rtype (sp/current)))
+                               (cat modif (sp/medium))) modifs)))
+            (and rtype (cat rtype (sp/medium)))
             name
             (if (null? params)
                 (Text "()")
-                (bracket/br "("
-                            (apply cat
-                                   (add-between params
-                                                (cat (Text ",") (Line))))
-                            ")")))
+                (bracket "("
+                         (apply cat
+                                (add-between params
+                                             (cat (Text ",") (Line))))
+                         ")")))
    (Line)
    (Text "{")
    (and (not (null? stmts))
@@ -358,7 +364,7 @@
 
 (define (random-qual (count (+ 1 (random 2))))
   (times/cat count
-             (cat (random-namespace-name) (Text "::") (breakable/current))))
+             (cat (random-namespace-name) (Text "::") (breakable/weak))))
 
 (define (random-typename (depth 1)
                          #:min (min 5)
@@ -386,7 +392,7 @@
 
 (define (random-cpp-expr (depth 1))
   (define (f/br s1 doc s2)
-    (cat (Text s1) (breakable/current) doc (breakable/current) (Text s2)))
+    (cat (Text s1) (breakable/strong) doc (breakable/strong) (Text s2)))
   (define outer? (eqv? depth 1))
   (in-cpp
    (random-case/scored
@@ -401,14 +407,14 @@
              (times/sep/cat
               (random/from-range 2 4)
               (random-cpp-expr (+ depth 1))
-              (cat (sp/current) (Text "&&") (sp/current)))
+              (cat (sp/strong) (Text "&&") (sp/weak)))
              ")"))
      )))
 
 (define (random-cpp-var-decl)
   (in-cpp
-   (ind-cat (Text "#define") (sp/current)
-            (random-cpp-varname) (sp/current)
+   (ind-cat (Text "#define") (sp/strong)
+            (random-cpp-varname) (sp/weak)
             (random-cpp-expr))))
 
 (define-syntax random-case/scored
@@ -434,12 +440,12 @@
         (else (error "mismatch" k)))))))
 
 (define (random-vardecl ctx)
-  (ind-cat (and (eq? ctx 'tl) (cat (Text "static") (sp/current)))
-           (random-typename) (sp/current) (random-varname) (semi)))
+  (ind-cat (and (eq? ctx 'tl) (cat (Text "static") (sp/medium)))
+           (random-typename) (sp/medium) (random-varname) (semi)))
 
 (define (random-typedef)
-  (ind-cat (Text "typedef") (sp/current)
-           (random-typename #:ref #t) (sp/current)
+  (ind-cat (Text "typedef") (sp/medium)
+           (random-typename #:ref #t) (sp/medium)
            (random-typename #:args-ok #f) (Text ";")))
 
 (define (random-struct depth)
@@ -558,10 +564,19 @@
 
 (define w-lst '(5 10 15 25 35 45 55 65 75))
 
+(define (force-sh m e)
+  (lambda (cw i k)
+    (let ((i (string-length i)))
+      (* cw (expt (+ 1 (* m i)) (- e))))))
+
 (define sh-lst
   (list
    (cons "default" (thunk (weak-f default-strength)
+                          (medium-f default-strength)
                           (strong-f default-strength)))
+   (cons "forced" (thunk (weak-f (force-sh .3 .3))
+                         (medium-f (force-sh .15 .15))
+                         (strong-f default-strength)))
    ))
 
 ;;; 
