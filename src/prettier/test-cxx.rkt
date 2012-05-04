@@ -73,7 +73,7 @@
 (define weak (make-parameter 4/5))
 
 ;; Default line break.
-(define current-line (make-parameter (line)))
+(define current-line (make-parameter (Line)))
 
 ;; Default strength for UNIONs.
 (define current-strength (make-parameter strong))
@@ -90,7 +90,7 @@
 (define (union/weak l r)
   (private-union l r weak))
 
-;; Forced linebreak.
+;; Forced linebreak. Might have a suffix.
 (define (ln)
   (current-line))
 

@@ -12,10 +12,6 @@
 (define (stream-put s t)
   (stream-append s (stream t)))
 
-;; A list of streams or tokens. Gives a stream.
-(define* (list/st . xs)
-  (apply stream-append (map (lambda (x) (if (stream? x) x (stream x))) xs)))
-
 ;;; 
 ;;; stack
 ;;; 
@@ -78,12 +74,6 @@
 ;;; 
 ;;; formatting algorithm
 ;;; 
-
-;; l:: left choice (stream of Token)
-;; r:: right choice (stream of Token)
-;; sh:: eagerness to choose first fitting fragment (rational)
-(define* (private-union l r (sh 1))
-  (Union l r sh))
 
 (struct* FmtSt (
                 cw ;; specified page width (integer, constant)
@@ -240,22 +230,31 @@
 ;;; grouping construct
 ;;; 
 
+(define* default-strength 1)
+
+;; l:: left choice (stream of Token)
+;; r:: right choice (stream of Token)
+;; sh:: eagerness to choose first fitting fragment (rational)
+;; Returns:: Token
+(define* (private-union l r (sh default-strength))
+  (Union l r sh))
+
 ;; Behaves lazily. Note the use of stateless iterators to avoid the
 ;; cost of creating a new closure for every iteration. This is
 ;; inspired by Lua's ipairs, although we require no invariant state.
 ;; http://www.lua.org/pil/7.3.html
-(define* (flatten ts) ;; stream of Token -> stream of Token
+(define* (private-flatten ts) ;; stream of Token -> stream of Token
   (if (stream-empty? ts)
       ts
       (let ((t (stream-first ts))
             (ts (stream-rest ts)))
         (cond
          ((Line? t)
-          (stream-cons (Text " ") (flatten ts)))
+          (stream-cons (Text " ") (private-flatten ts)))
          ((Union? t)
-          (flatten (stream-append (Union-l t) ts)))
+          (private-flatten (stream-append (Union-l t) ts)))
          (else
-          (stream-cons t (flatten ts)))))))
+          (stream-cons t (private-flatten ts)))))))
 
-(define* (group ts)
-  (stream (private-union (flatten ts) ts)))
+(define* (private-group ts) ;; stream of Token -> Token
+  (private-union (private-flatten ts) ts))

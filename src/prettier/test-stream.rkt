@@ -34,15 +34,15 @@
                (sequence->stream 
                 (add-between
                  (map (compose Text number->string) (for/list ((i 10)) i))
-                 (Line)))) ex
+                 (Line)))) dedent
               (Text ")")))
          )
     (list
      (cons "grouped list" d4)
      (cons "nesting" d2)
-     (cons "grouped then flattened" (flatten (group d1)))
-     (cons "grouped" (group d1))
      (cons "flattened" (flatten d1))
+     (cons "grouped" (group d1))
+     (cons "grouped then flattened" (flatten (group d1)))
      (cons "union" (stream (private-union (stream (Text "verylongverylong")) (stream (Text "short")))))
      (cons "lines" d1)
      (cons "word" (stream (Text "foobar")))
@@ -53,9 +53,11 @@
 (define (main)
   (for* ((w (reverse w-lst))
          (d d-lst))
+        ;;(writeln d)
         (test-doc w (car d) (cdr d)))
 
   ;; to test laziness
+  #;
   (let ((s (stream-cons (displayln 'foo) (stream (displayln 'bar)))))
     (displayln 'have-s)
     (stream-first s)

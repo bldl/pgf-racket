@@ -8,6 +8,61 @@
 ;;; shorthands
 ;;; 
 
+(define* (to-token-stream x)
+  (cond
+   ((stream? x) x)
+   ((Token? x) (stream x))
+   ((string? x) (stream (Text x)))
+   (else
+    (error "to-token-stream: unsupported" x))))
+
+(define* (cat . xs)
+  (foldl
+   (lambda (x r)
+     (cond
+      ((stream? x) (stream-append r x))
+      ((Token? x) (stream-append r (stream x)))
+      ((string? x) (stream-append r (stream (Text x))))
+      (else
+       (error "cat: unsupported" x))))
+   empty-stream xs))
+
+;; A list of streams or tokens. Gives a stream.
+;; xxx implement 'cat' like this
+(define* (list/st . xs)
+  (apply stream-append (map (lambda (x) (if (stream? x) x (stream x))) xs)))
+
+(define* (union l r (sh default-strength))
+  (stream (Union (to-token-stream l)
+                 (to-token-stream r) sh)))
+
+(define* (flatten x) ;; stream-like -> stream
+  (private-flatten (to-token-stream x)))
+
+(define* (group x) ;; stream-like -> stream
+  (stream (private-group (to-token-stream x))))
+
+(define* br (Line))
+
+(define* nbsp (Text " "))
+
+(define* sp (union nbsp br))
+
+(define* (bsp sh)
+  (union nbsp br sh))
+
+(define* indent0 (Nest (LvAbs 0)))
+
+(define* align (Nest (LvRel 0)))
+
+(define* dedent (Nest (LvPop)))
+
+(define* (indent n) (Nest (LvInc n)))
+
+(define* (exdent n) (Nest (LvInc (- n))))
+
+
+
 #|
 (define* (nest n doc)
   (NEST (LvInc n) doc))
@@ -23,20 +78,6 @@
 (define* (nest/rel n doc)
   (NEST (LvRel n) doc))
 |#
-
-(define* align (Nest (LvRel 0)))
-
-(define* ex (Nest (LvPop)))
-
-(define* (br (hyphen #f))
-  (if hyphen
-      (stream (Text hyphen) (Line))
-      (Line)))
-
-(define* nbsp (Text " "))
-
-(define* (space sh)
-  (Union nbsp (br) sh))
 
 ;;; 
 ;;; ala Wadler
