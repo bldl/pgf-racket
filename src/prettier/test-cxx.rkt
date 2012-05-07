@@ -171,9 +171,6 @@
         empty-stream
         (apply cat (reverse lst)))))
 
-(define (fill/weak lst)
-  (sep-by (sp/weak) lst))
-
 ;;; 
 ;;; C++ specific pretty printing
 ;;; 
@@ -235,15 +232,26 @@
 (define (infix op)
   (cat (sp/strong) (Text op) (sp/weak)))
 
+(define (infix/medium op)
+  (cat (sp/strong) (Text op) (sp/medium)))
+
+(define (infix/br op)
+  (cat (Text " ") (Text op) (br/current)))
+
 (define (c-add-expr exprs ctx)
-  (let ((sep (infix "+")))
-    (maybe-parens
-     (not (eq? ctx 'outer))
-     (sep-by sep exprs))))
+  (let ((outer? (eq? ctx 'outer)))
+    (let ((sep ((if outer? infix infix/medium) "+")))
+      (maybe-parens
+       (not outer?)
+       (sep-by sep exprs)))))
+
+(define (c-if-expr/fill c t e ctx)
+  (maybe-parens (eq? ctx 'inner)
+                (cat c (infix "?") t (infix ":") e)))
 
 (define (c-if-expr c t e ctx)
   (maybe-parens (eq? ctx 'inner)
-                (cat c (infix "?") t (infix ":") e)))
+                (group (cat c (infix/br "?") t (infix/br ":") e))))
 
 (define (c-call-expr n args)
   (let* ((xs (add-between args (cat (Text ",") (Line))))
@@ -252,11 +260,7 @@
             align (group x strong-sh) dedent (Text ")"))))
 
 (define (c-qual-type-inst n args)
-  (let* ((xs (map/skip-last
-              (lambda (x)
-                (cat x (Text ",")))
-              args))
-         (x (fill/weak xs)))
+  (let* ((x (group (sep-by (cat "," (Line)) args) strong-sh)))
     (cat n (breakable/weak) (Text "{")
             align x dedent (Text "}"))))
 
@@ -473,10 +477,10 @@
    (if (- 4 depth) (c-if-expr (random-expr (+ depth 1) 'inner)
                               (random-expr (+ depth 1) 'inner)
                               (random-expr (+ depth 1) 'inner) ctx))
-   (add (- 3 depth)
+   (add (- 5 depth)
         (let ((l (random-expr (+ depth 1) 'inner))
               (r-lst
-               (let ((n (random/from-range 1 4)))
+               (let ((n (random/from-range 1 3)))
                  (times/list n (random-expr (+ depth 1) 'inner #:int? #t)))))
           (c-add-expr (cons l r-lst) ctx)))))
 
@@ -576,6 +580,9 @@
                           (strong-f default-strength)))
    (cons "forced" (thunk (weak-f (force-sh .3 .3))
                          (medium-f (force-sh .15 .15))
+                         (strong-f default-strength)))
+   (cons "harder" (thunk (weak-f (force-sh .4 .4))
+                         (medium-f (force-sh .2 .2))
                          (strong-f default-strength)))
    ))
 
