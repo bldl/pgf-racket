@@ -36,8 +36,11 @@
                  (map (compose Text number->string) (for/list ((i 10)) i))
                  (Line)))) dedent
               (Text ")")))
+         (d5 (group* (list (cat "foo" "+" "bar")
+                           (cat "1" "-" "2" "-" "3"))))
          )
     (list
+     (cons "special grouped" d5)
      (cons "grouped list" d4)
      (cons "nesting" d2)
      (cons "flattened" (flatten d1))

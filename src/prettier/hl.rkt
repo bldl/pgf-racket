@@ -14,6 +14,7 @@
    ((Token? x) (stream x))
    ((string? x) (stream (Text x)))
    ((not x) empty-stream)
+   ((sequence? x) (sequence->stream x))
    (else
     (error "to-token-stream: unsupported" x))))
 
@@ -122,3 +123,62 @@
                          (stack (list (apply group* l)
                                       (apply group* r))))))))
 |#
+
+(define (seq-join sep x)
+  (define (f s)
+    (if (stream-empty? s)
+        s
+        (let ((e (stream-first s))
+              (t (stream-rest s)))
+          (if (stream-empty? t)
+              (if (not (sequence? e))
+                  (stream e)
+                  (f (sequence->stream e)))
+              (if (not (sequence? e))
+                  (stream-cons e (stream-cons sep (f t)))
+                  (stream-append
+                   (f (sequence->stream e))
+                   (stream-cons sep (f t))))))))
+  (if (not (sequence? x))
+      (stream x)
+      (f (sequence->stream x))))
+
+(define seq-flatten (fix seq-join nbsp))
+(define seq-fill (fix seq-join (private-union (stream (Text " "))
+                                              (stream (Line)))))
+                               
+;; (let ((lst (list (cat "1" "2" "3") (list (Text "4") (Text "5") (list (Text "6") (Text "7") (Text "8"))))))
+;;   (for/list ((i (seq-flatten lst))) i))
+
+;; nested sequences -> stream of Token
+(define* (group* x)
+  ;; Here we build a grouping such that either (1) the first element
+  ;; is flattened and the next one follows on the same line (2) the
+  ;; first element is flattened, with a line break following, (3)
+  ;; group* is called to handle the first element, and a line break
+  ;; follows. When we speak of flattening we here actually mean
+  ;; joining with spaces. The input should not contain Line tokens.
+  (define (g s break?)
+    (if (stream-empty? s)
+        s
+        (let ((e (stream-first s))
+              (t (stream-rest s)))
+          (if (stream-empty? t)
+              (if (not break?)
+                  (seq-flatten e)
+                  (union
+                   (seq-flatten e)
+                   (group* e)))
+              (let ((flat
+                     (stream-append (seq-flatten e)
+                                    (union (stream-cons nbsp (g t #f))
+                                           (stream-cons br (g t #t))))))
+                (if (not break?)
+                    flat
+                    (union flat
+                           (stream-append (seq-fill e)
+                                          (stream-cons br (g t #t))))))))))
+  (if (not (sequence? x))
+      (stream x)
+      (g (sequence->stream x) #t)))
+  
