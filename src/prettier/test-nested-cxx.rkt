@@ -83,12 +83,17 @@ of expressions, while we otherwise use the default strength.
 (define weak (force-sh .3 .3))
 (define medium (force-sh .15 .15))
 
+(define cfg (make-parameter 'default))
+
 (define (depth-sh d)
-  ;;(writeln `(depth ,d))
-  (cond
-   ((= d 1) weak)
-   ((= d 2) medium)
-   (else default-strength)))
+  (lambda (cw i k)
+    (let ((f
+           (cond
+            ((eq? (cfg) 'default) default-strength)
+            ((= d 1) weak)
+            ((= d 2) medium)
+            (else default-strength))))
+      (f cw i k))))
 
 ;; Default line break.
 (define current-line (make-parameter (Line)))
@@ -404,13 +409,16 @@ of expressions, while we otherwise use the default strength.
            (times/list n (random-expr (+ depth 1) 'inner)))))
     (c-bin-expr op (cons l r-lst) ctx depth)))
 
+(define (random-if-expr depth ctx)
+  (c-if-expr (random-expr (+ depth 1) 'inner)
+             (random-expr (+ depth 1) 'inner)
+             (random-expr (+ depth 1) 'inner) ctx))
+
 (define (random-expr (depth 1) (ctx 'outer))
   (random-case/scored
    (var-ref 4 (random-varname))
    (int-lit 5 (c-int (random 1000)))
-   (if (- 4 depth) (c-if-expr (random-expr (+ depth 1) 'inner)
-                              (random-expr (+ depth 1) 'inner)
-                              (random-expr (+ depth 1) 'inner) ctx))
+   ;;(if (- 4 depth) (random-if-expr depth ctx))
    (bin (- 5 depth) (random-bin-expr depth ctx))))
 
 (define (random-return)
@@ -472,7 +480,8 @@ of expressions, while we otherwise use the default strength.
 
 (define sh-lst
   (list
-   (cons "default" (thunk (void)))
+   (cons "default" (thunk (cfg 'default)))
+   (cons "depth-based" (thunk (cfg 'depth-based)))
    ))
 
 ;;; 
