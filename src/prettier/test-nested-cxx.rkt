@@ -80,20 +80,31 @@ of expressions, while we otherwise use the default strength.
     (let ((i (string-length i)))
       (* cw (expt (+ 1 (* m i)) (- e))))))
 
-(define weak (force-sh .3 .3))
-(define medium (force-sh .15 .15))
+(define weak/sh (force-sh .3 .3))
+(define medium/sh  (force-sh .15 .15))
 
-(define cfg (make-parameter 'default))
+;; If false, use default strength across the board, otherwise use
+;; custom ones.
+(define cfg (make-parameter #f))
 
-(define (depth-sh d)
+;; Make config-dependent strength function.
+(define (cfg/sh f)
   (lambda (cw i k)
-    (let ((f
-           (cond
-            ((eq? (cfg) 'default) default-strength)
-            ((= d 1) weak)
-            ((= d 2) medium)
-            (else default-strength))))
-      (f cw i k))))
+    ((if (cfg) f default-strength) cw i k)))
+
+(define weak (cfg/sh weak/sh))
+(define medium (cfg/sh medium/sh))
+
+;; Make config-dependent strength function.
+(define (depth-sh d)
+  (cfg/sh
+   (lambda (cw i k)
+     (let ((f
+            (cond
+             ((= d 1) weak/sh)
+             ((= d 2) medium/sh)
+             (else default-strength))))
+       (f cw i k)))))
 
 ;; Default line break.
 (define current-line (make-parameter (Line)))
@@ -480,8 +491,8 @@ of expressions, while we otherwise use the default strength.
 
 (define sh-lst
   (list
-   (cons "default" (thunk (cfg 'default)))
-   (cons "depth-based" (thunk (cfg 'depth-based)))
+   (cons "default" (thunk (cfg #f)))
+   (cons "depth-based" (thunk (cfg #t)))
    ))
 
 ;;; 
