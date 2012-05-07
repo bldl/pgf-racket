@@ -80,6 +80,10 @@ of expressions, while we otherwise use the default strength.
     (let ((i (string-length i)))
       (* cw (expt (+ 1 (* m i)) (- e))))))
 
+(define (halve-sh cw i k)
+  (let ((i (string-length i)))
+    (+ i (/ (- cw i) 2))))
+
 (define weak/sh (force-sh .3 .3))
 (define medium/sh  (force-sh .15 .15))
 
@@ -101,8 +105,7 @@ of expressions, while we otherwise use the default strength.
    (lambda (cw i k)
      (let ((f
             (cond
-             ((= d 1) weak/sh)
-             ((= d 2) medium/sh)
+             ((= d 1) halve-sh)
              (else default-strength))))
        (f cw i k)))))
 
