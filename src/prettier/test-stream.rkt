@@ -36,10 +36,13 @@
                  (map (compose Text number->string) (for/list ((i 10)) i))
                  (Line)))) dedent
               (Text ")")))
-         (d5 (group* (list (cat "foo" "+" "bar")
-                           (cat "1" "-" "2" "-" "3"))))
+         (d5 (group* (list (list (cat "foo +" "bar") (cat "+"))
+                           (cat "1 -" "2 -" "3"))))
+         (d6 (group* (list (list (cat "(foo +" "bar)") (cat "*"))
+                           (cat "(1 -" "2 -" "3)"))))
          )
     (list
+     (cons "parenthesized special grouped" d6)
      (cons "special grouped" d5)
      (cons "grouped list" d4)
      (cons "nesting" d2)

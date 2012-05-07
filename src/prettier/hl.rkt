@@ -14,7 +14,6 @@
    ((Token? x) (stream x))
    ((string? x) (stream (Text x)))
    ((not x) empty-stream)
-   ((sequence? x) (sequence->stream x))
    (else
     (error "to-token-stream: unsupported" x))))
 
@@ -124,31 +123,76 @@
                                       (apply group* r))))))))
 |#
 
-(define (seq-join sep x)
-  (define (f s)
-    (if (stream-empty? s)
-        s
-        (let ((e (stream-first s))
-              (t (stream-rest s)))
-          (if (stream-empty? t)
-              (if (not (sequence? e))
-                  (stream e)
-                  (f (sequence->stream e)))
-              (if (not (sequence? e))
-                  (stream-cons e (stream-cons sep (f t)))
-                  (stream-append
-                   (f (sequence->stream e))
-                   (stream-cons sep (f t))))))))
-  (if (not (sequence? x))
-      (stream x)
-      (f (sequence->stream x))))
+(define (myseq/cat . xs)
+  (map
+   (lambda (x)
+     (cond
+      ((Token? x) x)
+      ((string? x) (Text x))
+      ((list? x) (apply myseq/cat x))
+      ((stream? x) x)
+      (else (error "myseq/cat: unsupported" x))))
+   xs))
 
+(define (myseq? x)
+  (or (list? x) (stream? x)))
+
+;; Racket's sequence->stream (or is it stream?) and
+;; sequence-add-between both appear to be broken, so we are not using
+;; them. Instead we define this.
+(define (myseq->stream x)
+  (cond
+   ((list? x)
+    (foldl (lambda (e r)
+             (stream-append r (stream e)))
+           empty-stream x))
+   ((stream? x) x)
+   (else (error "->stream: unsupported" x))))
+
+;; In a sequence of nested sequences 'x', separates each sequence with
+;; the separator 'sep'. Returns a stream of tokens.
+(define (seq-join sep x)
+  (let ((sep (to-token-stream sep)))
+    (define (f s)
+      (if (stream-empty? s)
+          s
+          (let ((e (stream-first s))
+                (t (stream-rest s)))
+            ;;(writeln (list e t))
+            (if (stream-empty? t)
+                (if (myseq? e)
+                    (f (myseq->stream e))
+                    (stream e))
+                (if (myseq? e)
+                    (stream-append
+                     (f (myseq->stream e)) sep (f t))
+                    (stream-append (stream e) sep (f t)))))))
+    (if (not (myseq? x))
+        (stream x)
+        (f (myseq->stream x)))))
+
+;; E.g.
+;; (seq-flatten (myseq/cat '("1" "2") '("3" ("4" "5") ("6"))))
+;; yields a stream consisting of:
+;; #(struct:Text "1")
+;; #(struct:Text " ")
+;; #(struct:Text "2")
+;; #(struct:Text " ")
+;; #(struct:Text "3")
+;; #(struct:Text " ")
+;; #(struct:Text "4")
+;; #(struct:Text " ")
+;; #(struct:Text "5")
+;; #(struct:Text " ")
+;; #(struct:Text "6")
 (define seq-flatten (fix seq-join nbsp))
-(define seq-fill (fix seq-join (private-union (stream (Text " "))
-                                              (stream (Line)))))
-                               
-;; (let ((lst (list (cat "1" "2" "3") (list (Text "4") (Text "5") (list (Text "6") (Text "7") (Text "8"))))))
-;;   (for/list ((i (seq-flatten lst))) i))
+
+(define seq-fill (fix seq-join sp))
+
+;;(for/list ((i (myseq/cat "foo" '("bar" "mug") "baz"))) i)
+;;(for/list ((i (seq-flatten (myseq/cat '("1" "2") '("3" ("4" "5") ("6")))))) i)
+;;(for/list ((i (seq-flatten (myseq/cat "foo" "bar" "baz")))) i)
+;;(for ((i (seq-flatten (myseq/cat '("1" "2") '("3" ("4" "5") ("6")))))) (writeln i))
 
 ;; nested sequences -> stream of Token
 (define* (group* x)
@@ -178,7 +222,7 @@
                     (union flat
                            (stream-append (seq-fill e)
                                           (stream-cons br (g t #t))))))))))
-  (if (not (sequence? x))
+  (if (not (myseq? x))
       (stream x)
-      (g (sequence->stream x) #t)))
+      (g (myseq->stream x) #t)))
   
