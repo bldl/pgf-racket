@@ -134,6 +134,8 @@
       (else (error "myseq/cat: unsupported" x))))
    xs))
 
+(provide (rename-out (myseq/cat cat*)))
+
 (define (myseq? x)
   (or (list? x) (stream? x)))
 
@@ -220,7 +222,7 @@
                 (if (not break?)
                     flat
                     (union flat
-                           (stream-append (seq-fill e)
+                           (stream-append (group* e)
                                           (stream-cons br (g t #t))))))))))
   (if (not (myseq? x))
       (stream x)

@@ -40,8 +40,12 @@
                            (cat "1 -" "2 -" "3"))))
          (d6 (group* (list (list (cat "(foo +" "bar)") (cat "*"))
                            (cat "(1 -" "2 -" "3)"))))
+         (d7 (group* (cat* (cat* "(1 +" "2) *") (cat* "(1 +" "2 +" (cat* "(3 +" "4 +" "5) +") "6)"))))
+         (d8 (group* (cat* (cat* (cat* "(1 +" "2)") "*") (cat* "(1 +" "2 +" (cat* (cat* "(3 +" "4 +" "5)") "+") "6)"))))
          )
     (list
+     (cons "deeper special grouping, loose op" d8)
+     (cons "deeper special grouping, tight op" d7)
      (cons "parenthesized special grouped" d6)
      (cons "special grouped" d5)
      (cons "grouped list" d4)
