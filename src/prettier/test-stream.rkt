@@ -44,6 +44,7 @@
          (d8 (group* (cat* (cat* (cat* "(1 +" "2)") "*") (cat* "(1 +" "2 +" (cat* (cat* "(3 +" "4 +" "5)") "+") "6)"))))
          )
     (list
+     (cons "deeper special grouping, indented" (cat (indent 2) (group* (cat* (cat* "(11 +" "22) *") (cat* "(1 +" "2 +" (cat* "(3 +" "4 +" "5) +") "6)"))) dedent))
      (cons "deeper special grouping, loose op" d8)
      (cons "deeper special grouping, tight op" d7)
      (cons "parenthesized special grouped" d6)
