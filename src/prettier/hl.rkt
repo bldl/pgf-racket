@@ -31,6 +31,9 @@
 (define* (group x (sh default-strength)) ;; stream-like -> stream
   (stream (private-group (to-token-stream x) sh)))
 
+(define* (group/cat . xs)
+  (group (apply cat xs)))
+
 (define* br (Line))
 
 (define* nbsp (Text " "))
