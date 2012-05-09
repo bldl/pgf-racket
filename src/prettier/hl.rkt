@@ -230,4 +230,19 @@
   (if (not (myseq? x))
       (stream x)
       (g (myseq->stream x) #t)))
-  
+
+;; xxx problem -- have no way of adding to the stream -- need more control, better have our own stream type
+;; (define* (group-stream* x)
+;;   (define (f st s)
+;;     (let loop ((st st) (s s))
+;;       (if (stream-empty? s)
+;;           s ;; may get more later
+;;           (let ((e (stream-first s))
+;;                 (t (stream-rest s)))
+;;             (cond
+;;              ((Group? e)
+;;               (
+;;   (f '() (to-token-stream x)))
+
+
+    

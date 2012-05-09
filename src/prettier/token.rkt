@@ -24,4 +24,6 @@
               (Space s sh) ;; string, rational -> Token
               (Anno lst) ;; list of symbol -> Token
               (/Anno lst) ;; list of symbol -> Token
+              (Group) ;; -> Token
+              (End) ;; -> Token
               ))

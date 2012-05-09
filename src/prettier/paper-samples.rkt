@@ -20,8 +20,8 @@
          (pop (Nest (LvPop)))
          )
     (list
-     (list "comparison 1 (group)" '(20) (cat (indent 2) (group/cat (group/cat "(1 +" br "2) *") br (group/cat "(3 +" br "4 +" br (group/cat "(5 +" br "6 +" br "7) +") br "8)")) dedent))
-     (list "comparison 1 (group*)" '(20) (cat (indent 2) (group* (cat* (cat* "(1 +" "2) *") (cat* "(3 +" "4 +" (cat* "(5 +" "6 +" "7) +") "8)"))) dedent))
+     (list "comparison 1 (group)" '(20) (group/cat (group/cat "(" align "1 +" br "2" dedent ") *") br (group/cat "(" align "3 +" br "4 +" br (group/cat "(" align "5 +" br "6 +" br "7" dedent ") +") br "8" dedent ")")))
+     (list "comparison 1 (group*)" '(20) (group* (cat* (cat* "(" align "1 +" "2" dedent ") *") (cat* "(" align "3 +" "4 +" (cat* "(" align "5 +" "6 +" "7" dedent ") +") "8" dedent ")"))))
      )))
 
 (define (main)
