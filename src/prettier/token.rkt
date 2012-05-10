@@ -133,8 +133,9 @@ directly over a tseq.
 
 (define* (tseq-add-between s e)
   (let next ((s s))
-    (let-values (((h t) (tseq-get s)))
-      (if (not h) empty-tseq
-          (tseq/lazy h
-                     (and (not (tseq-empty? t)) e)
-                     (next t)))))) 
+    (lazy
+     (let-values (((h t) (tseq-get s)))
+       (if (not h) empty-tseq
+           (tseq h
+                 (and (not (tseq-empty? t)) e)
+                 (next t))))))) 
