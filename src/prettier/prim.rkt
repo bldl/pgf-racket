@@ -9,9 +9,6 @@
     (writeln (list (quote op) arg ... last))
     (op arg ... last)))
 
-(define (stream-put s t)
-  (stream-append s (stream t)))
-
 ;;; 
 ;;; stack
 ;;; 
@@ -78,19 +75,17 @@
 (struct* FmtSt (
                 cw ;; specified page width (integer, constant)
                 w ;; page width (rational)
-                outDoc ;; formatted document (stream of Token)
-                inDoc ;; unread input (stream of Token)
+                outDoc ;; formatted document (tseq of Token)
+                inDoc ;; unread input (tseq of Token)
                 k ;; current column (integer)
                 lvStack ;; nesting stack (stack of string)
                 bt ;; backtracking state (if any; can be chained)
                 ) #:transparent)
 
-;; xxx try using define-sequence-syntax to define a way to 'for' over FmtSt using 'process-token', and naturally state should be made available for inspection and even modification
-
 ;; w:: page width (integer)
-;; inDoc:: unread input (stream of Token, optional)
-(define* (new-FmtSt w (inDoc empty-stream))
-  (FmtSt w w empty-stream inDoc 0 '("") #f))
+;; inDoc:: unread input (tseq of Token, optional)
+(define* (new-FmtSt w (inDoc empty-tseq))
+  (FmtSt w w empty-tseq inDoc 0 '("") #f))
 
 ;; Flushes buffered documents, committing decisions made thus far.
 ;; After this it is safe to consume all of 'outDoc'.
@@ -99,10 +94,10 @@
 
 (define (process-token st) ;; FmtSt -> FmtSt
   (let ((inDoc (FmtSt-inDoc st)))
-    (if (stream-empty? inDoc)
+    (if (tseq-empty? inDoc)
         st
-        (let ((d (stream-first inDoc))
-              (inDoc (stream-rest inDoc)))
+        (let ((d (tseq-first inDoc))
+              (inDoc (tseq-rest inDoc)))
           (let ((k (FmtSt-k st))
                 (w (FmtSt-w st))
                 (outDoc (FmtSt-outDoc st))
@@ -120,7 +115,7 @@
                   (if (and bt (> k w))
                       bt ;; backtrack
                       (struct-copy FmtSt st (inDoc inDoc)
-                                   (k k) (outDoc (stream-put outDoc d)))))))
+                                   (k k) (outDoc (tseq-put outDoc d)))))))
              ((Line? d)
               ;; A break always fits, and then we're committed, and
               ;; won't backtrack from here.
@@ -128,8 +123,8 @@
                            (k (string-length i))
                            (bt #f)
                            (outDoc
-                            (stream-append outDoc
-                                           (stream
+                            (tseq-append outDoc
+                                           (tseq
                                             (Text "\n")
                                             (Text i))))))
              ((Union? d)
@@ -139,11 +134,11 @@
                     (sh (Union-sh d)))
                 (let ((r-st
                        (struct-copy FmtSt st
-                                    (inDoc (stream-append r inDoc)))))
+                                    (inDoc (tseq-append r inDoc)))))
                   (struct-copy FmtSt st
                                (w (sh (FmtSt-cw st) i k))
                                (inDoc
-                                (stream-append l (stream-cons (Width w) inDoc)))
+                                (tseq-append l (tseq-cons (Width w) inDoc)))
                                (bt r-st)))))
              ((Width? d)
               (struct-copy FmtSt st
@@ -153,15 +148,15 @@
              ))))))
 
 (define (FmtSt-eof? st) ;; FmtSt -> boolean
-  (stream-empty? (FmtSt-inDoc st)))
+  (tseq-empty? (FmtSt-inDoc st)))
 
-;; Adds a stream to input.
-(define* (FmtSt-write st s) ;; FmtSt, stream of Token -> St
-  (struct-copy FmtSt st (inDoc (stream-append (FmtSt-inDoc st) s))))
+;; Adds a tseq to input.
+(define* (FmtSt-write st s) ;; FmtSt, tseq of Token -> St
+  (struct-copy FmtSt st (inDoc (tseq-append (FmtSt-inDoc st) s))))
 
 ;; Adds a token to input.
 (define* (FmtSt-put st t) ;; FmtSt, Token -> St
-  (FmtSt-write st (stream t)))
+  (FmtSt-write st (tseq t)))
 
 ;; Processes tokens for as long as there is input.
 (define (process-tokens st) ;; FmtSt -> FmtSt
@@ -185,27 +180,27 @@
 
 ;; ts:: formatted document
 ;; Returns:: pretty-printed string
-(define* (pgf-string/stream ts) ;; stream of Token -> string
+(define* (pgf-string/tseq ts) ;; tseq of Token -> string
   (apply string-append
-         (for/list ((t (in-stream ts)))
+         (for/list ((t (in-tseq ts)))
                    (pgf-string/token t))))
 
 (define* (pgf-string/st st)
-  (pgf-string/stream
+  (pgf-string/tseq
    (FmtSt-outDoc
     (process-tokens st))))
 
 ;; w:: page width
 ;; ts:: formatted document
 ;; Returns:: pretty-printed string
-(define* (pgf-string w ts) ;; integer, stream -> string
+(define* (pgf-string w ts) ;; integer, tseq -> string
   (pgf-string/st (new-FmtSt w ts)))
 
 ;; Clears output buffer by printing it all out.
 (define* (pgf-print/st/buffered st (out (current-output-port)))
-  (for ((t (FmtSt-outDoc st)))
+  (for ((t (in-tseq (FmtSt-outDoc st))))
        (display (pgf-string/token t) out))
-  (struct-copy FmtSt st (outDoc empty-stream)))
+  (struct-copy FmtSt st (outDoc empty-tseq)))
 
 ;; Processes as much input as is available, and prints as much as
 ;; safely can. Works incrementally so that printing happens as soon as
@@ -233,8 +228,8 @@
 (define* (default-strength cw i k)
   cw)
 
-;; l:: left choice (stream of Token)
-;; r:: right choice (stream of Token)
+;; l:: left choice (tseq of Token)
+;; r:: right choice (tseq of Token)
 ;; sh:: eagerness to choose first fitting fragment (rational)
 ;; Returns:: Token
 (define* (private-union l r (sh default-strength))
@@ -244,19 +239,19 @@
 ;; cost of creating a new closure for every iteration. This is
 ;; inspired by Lua's ipairs, although we require no invariant state.
 ;; http://www.lua.org/pil/7.3.html
-(define* (private-flatten ts) ;; stream of Token -> stream of Token
-  (if (stream-empty? ts)
+(define* (private-flatten ts) ;; tseq of Token -> tseq of Token
+  (if (tseq-empty? ts)
       ts
-      (let ((t (stream-first ts))
-            (ts (stream-rest ts)))
+      (let ((t (tseq-first ts))
+            (ts (tseq-rest ts)))
         (cond
          ((Line? t)
-          (stream-cons (Text " ") (private-flatten ts)))
+          (tseq-cons/lazy (Text " ") (private-flatten ts)))
          ((Union? t)
-          (private-flatten (stream-append (Union-l t) ts)))
+          (private-flatten (tseq-append/lazy (Union-l t) ts)))
          (else
-          (stream-cons t (private-flatten ts)))))))
+          (tseq-cons/lazy t (private-flatten ts)))))))
 
- ;; stream of Token -> Token
+ ;; tseq of Token -> Token
 (define* (private-group ts (sh default-strength))
   (private-union (private-flatten ts) ts sh))

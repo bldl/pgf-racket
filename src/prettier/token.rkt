@@ -44,14 +44,24 @@ Example usage:
 (for ((e (in-tseq '("1" "2" "3"))))
      (writeln e))
 
+TODO: Try using define-sequence-syntax to define a way to 'for'
+directly over a tseq.
+
 |#
 
 (data* Tseq ())
 
 (define* empty-tseq '())
 
+(define* tseq list)
+
+(define-syntax-rule* (tseq/lazy s ...)
+  (list (lazy s) ...))
+
 (define* (tseq? x)
-  (or (pair? x) (Token? x) (string? x) (Tseq? x) (promise? x)))
+  (or (null? x) (pair? x)
+      (Token? x) (string? x)
+      (Tseq? x) (promise? x)))
 
 (define* (tseq-empty? s)
   (not (tseq-first s)))
@@ -72,6 +82,15 @@ Example usage:
 
 (define* (tseq-append . s-lst)
   s-lst)
+
+(define-syntax-rule* (tseq-cons/lazy e s)
+  (cons (lazy e) (lazy s)))
+
+(define-syntax-rule* (tseq-put/lazy s e)
+  (cons (lazy s) (lazy e)))
+
+(define-syntax-rule* (tseq-append/lazy s ...)
+  (list (lazy s) ...))
 
 ;; Must account for all tseq constructors. But only here, thanks to
 ;; our curious design.
