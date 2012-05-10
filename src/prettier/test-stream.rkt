@@ -20,12 +20,12 @@
 (define d-lst
   (let* (
          (d1 (tseq (Text "first") (Line)
-                     (Text "second") (Line)
-                     (Text "third") (Line)
-                     (Text "fourth")))
+                   (Text "second") (Line)
+                   (Text "third") (Line)
+                   (Text "fourth")))
          (d2 (tseq (Text "foobar") (Nest (LvInc 4)) (Line)
-                     (Text "baz") (Nest (LvPop)) (Line)
-                     (Text "bamf")))
+                   (Text "baz") (Nest (LvPop)) (Line)
+                   (Text "bamf")))
          (pop (Nest (LvPop)))
          (d4 (cat
               (Text "'") (Text "(")
@@ -37,6 +37,13 @@
               (Text ")")))
          )
     (list
+     (cons "stream group (tseq/gr)" (tseq/gr gr gr "(" align "1 +" br "2" dedent ") *" end br gr "(" align "3 +" br "4 +" br gr "(" align "5 +" br "6 +" br "7" dedent ") +" end br "8" dedent ")" end end))
+     (cons "stream group (complex group)" (group-stream (tseq gr gr "(" align "1 +" br "2" dedent ") *" end br gr "(" align "3 +" br "4 +" br gr "(" align "5 +" br "6 +" br "7" dedent ") +" end br "8" dedent ")" end end)))
+     (cons "stream group (double group)" (group-stream (tseq gr gr "1 +" br "2 +" br "3" end end)))
+     (cons "stream group (actual group)" (group-stream (tseq gr "1 +" br "2 +" br "3" end)))
+     (cons "stream group (seq)" (group-stream (tseq "1" align "2" dedent "3")))
+     (cons "stream group (seq with breaks)" (group-stream (tseq "1" align br "2" dedent br "3")))
+     (cons "stream group (single token)" (group-stream "group-stream"))
      (cons "normal grouping (basic)" (group (cat (group (cat "(1 +" br "2 +" br "3) *")) br (group (cat "(4 +" br "5 +" br "6) *")) br (group (cat "(7 +" br "8 +" br "9)")))))
      (cons "normal grouping (nested)" (cat (indent 2) (group/cat (group/cat "(11 +" br "22) *") br (group/cat "(1 +" br "2 +" br (group/cat "(3 +" br "4 +" br "5) +") br "6)")) dedent))
      (cons "comparison 1 (group)" (cat (indent 2) (group/cat (group/cat "(11 +" br "22) *") br (group/cat "(11 +" br "22 +" br (group/cat "(3 +" br "4 +" br "5) +") br "6)")) dedent))

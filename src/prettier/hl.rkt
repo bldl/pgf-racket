@@ -86,16 +86,62 @@
 ;;; grouping input streams
 ;;; 
 
-;; xxx problem -- have no way of adding to the stream -- need more control, better have our own stream type
-;; (define* (group-stream* x)
-;;   (define (f st s)
-;;     (let loop ((st st) (s s))
-;;       (if (tseq-empty? s)
-;;           s ;; may get more later
-;;           (let ((e (tseq-first s))
-;;                 (t (tseq-rest s)))
-;;             (cond
-;;              ((Group? e)
-;;               (
-;;   (f '() (to-token-stream x)))
+;; xxx add support for 'fill' such that Line() separates the elements
+;; of a fill list
+
+;; Lazily turns Group/End ranges into nested 'group' constructions.
+;;
+;; Note that 's' must be complete, with matching numbers of opening
+;; and closing tokens. We are currently not providing a way to suspend
+;; and resume the streaming, and to put more data into the stream,
+;; which would be useful for incremental operation. We could quite
+;; easily refactor to allow for that, as we already internally
+;; maintain explicit grouping state.
+(define* (group-stream s)
+  ;; ctor:: constructs tseq given buffer contents (function or #f)
+  ;; buf:: buffered tokens (tseq)
+  ;; outer:: outer grouping (St or #f)
+  (struct St (ctor buf outer) #:transparent)
+
+  (define (new-St)
+    (St #f empty-tseq #f))
+  
+  (define (buf-put st e)
+    (struct-copy St st (buf (tseq-put (St-buf st) e))))
+  
+  (let next ((st (new-St)) (s s))
+    (lazy ;; even laziness
+     (let-values (((h t) (tseq-get s)))
+       ;;(writeln (list 'h h 't t 'st st))
+       (let ((ctor (St-ctor st))
+             (buf (St-buf st)))
+         (if (not h)
+             (begin
+               (when ctor (error "unclosed grouping" buf))
+               s)
+             (cond
+              ((Group? h)
+               (let ((outer (and ctor st)))
+                 (next (St group empty-tseq outer) t)))
+              ((End? h)
+               (begin
+                 (unless ctor
+                   (error "unopened grouping" h))
+                 (let ((ge (ctor buf))
+                       (outer (St-outer st)))
+                   ;;(writeln (list 'outer outer))
+                   (if outer
+                       (next (buf-put outer ge) t)
+                       (tseq-cons ge (next (new-St) t))))))
+              (else
+               (if ctor
+                   (next (buf-put st h) t)
+                   (tseq-cons h (next st t))))
+              )))))))
+
+(define* gr (Group))
+(define* end (End))
+
+(define* (tseq/gr . lst)
+  (group-stream lst))
 
