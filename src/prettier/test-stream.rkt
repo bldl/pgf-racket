@@ -58,20 +58,25 @@
      ;;(cons "too many pops" (tseq (Nest (LvInc 2)) pop pop))
      )))
 
-(define (main)
-  (for* ((w (reverse w-lst))
-         (d d-lst))
-        ;(writeln d)
-        (test-doc w (car d) (cdr d)))
+(define-syntax-rule
+  (debug e)
+  (let ((v e)) (writeln `(evaluated ,(quote e) as ,v)) v))
 
-  ;; to test laziness
-  #;
-  (let ((s (tseq-cons/lazy (displayln 'foo) (tseq/lazy (displayln 'bar)))))
+(define (test-laziness)
+  (let ((s (tseq-cons/lazy (debug "foo") (tseq/lazy (debug "bar")))))
     (displayln 'have-s)
     (tseq-first s)
     (displayln 'have-first)
     (tseq-rest s)
-    (displayln 'have-last))
-  )
+    (displayln 'have-rest)
+    (tseq-first (tseq-rest s))
+    (displayln 'have-last)))
+
+(define (main)
+  ;;(test-laziness)
+  (for* ((w (reverse w-lst))
+         (d d-lst))
+        ;(writeln d)
+        (test-doc w (car d) (cdr d))))
       
 (main)
