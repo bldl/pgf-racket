@@ -1,6 +1,9 @@
 #lang racket
 
 #|
+
+Tokens and token sequences/streams.
+
 |#
 
 (require "util.rkt")
@@ -49,7 +52,17 @@ directly over a tseq.
 
 |#
 
-(data* Tseq ())
+(data* Tseq (
+             ;; This object may contain state additional to the actual
+             ;; token stream. This is an abstract construction, and
+             ;; you must provide a 'get' operation. Any 'tseq-put'
+             ;; invocation will not add data under the control of an
+             ;; Ipairs; if you want such an operation, you must define
+             ;; it separately for your Ipairs instance. This is
+             ;; possible as the 'get' operation is known for a
+             ;; concrete instance.
+             (Ipairs st get)
+             ))
 
 (define* empty-tseq '())
 
@@ -96,9 +109,6 @@ directly over a tseq.
 ;; our curious design.
 (define* (tseq-get s)
   (cond
-   ((Token? s) (values s empty-tseq))
-   ((string? s) (values (Text s) empty-tseq))
-   ((null? s) (values #f s))
    ((pair? s) (let ((h (car s)))
                 (if (not h)
                     (tseq-get (cdr s)) ;; allow #f within a list
@@ -106,7 +116,11 @@ directly over a tseq.
                       (if (not hh)
                           (tseq-get (cdr s))
                           (values hh (cons ht (cdr s))))))))
+   ((null? s) (values #f s))
+   ((Token? s) (values s empty-tseq))
+   ((string? s) (values (Text s) empty-tseq))
    ((promise? s) (tseq-get (force s)))
+   ((Ipairs? s) ((Ipairs-get s) (Ipairs-st s)))
    (else (error "tseq-get: not a tseq" s))))
 
 (define* (tseq-foreach f s)
