@@ -45,16 +45,8 @@
 
 (define* (exdent n) (Nest (LvInc (- n))))
 
-;; xxx rewrite as lazy
-(define* (sep-by sep elems)
-  (let ((first #t)
-        (r empty-tseq))
-    (for ((x elems))
-         (if first
-             (set! first #f)
-             (set! r (tseq-append r sep)))
-         (set! r (tseq-append r x)))
-    r))
+(define* (sep-by sep s)
+  (tseq-add-between s sep))
 
 (define* (nest n doc)
   (cat (indent n) doc dedent))

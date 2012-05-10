@@ -130,3 +130,11 @@ directly over a tseq.
             (negate tseq-empty?) ;; current position -> whether at end
             (negate false?) ;; current element -> whether at end
             #f))))
+
+(define* (tseq-add-between s e)
+  (let next ((s s))
+    (let-values (((h t) (tseq-get s)))
+      (if (not h) empty-tseq
+          (tseq/lazy h
+                     (and (not (tseq-empty? t)) e)
+                     (next t)))))) 
