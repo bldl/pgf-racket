@@ -136,6 +136,5 @@ directly over a tseq.
     (lazy
      (let-values (((h t) (tseq-get s)))
        (if (not h) empty-tseq
-           (tseq h
-                 (and (not (tseq-empty? t)) e)
-                 (next t))))))) 
+           (if (tseq-empty? t) h
+               (tseq h e (next t))))))))
