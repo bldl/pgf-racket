@@ -103,41 +103,35 @@
   ;; outer:: outer grouping (St or #f)
   (struct St (ctor buf outer) #:transparent)
 
-  (define (new-St)
-    (St #f empty-tseq #f))
-  
   (define (buf-put st e)
     (struct-copy St st (buf (tseq-put (St-buf st) e))))
   
-  (let next ((st (new-St)) (s s))
+  (let next ((st #f) (s s))
     (lazy ;; even laziness
      (let-values (((h t) (tseq-get s)))
        ;;(writeln (list 'h h 't t 'st st))
-       (let ((ctor (St-ctor st))
-             (buf (St-buf st)))
-         (if (not h)
+       (if (not h)
+           (begin
+             (when st (error "unclosed grouping" (St-buf st)))
+             s)
+           (cond
+            ((Group? h)
+             (next (St group empty-tseq st) t))
+            ((End? h)
              (begin
-               (when ctor (error "unclosed grouping" buf))
-               s)
-             (cond
-              ((Group? h)
-               (let ((outer (and ctor st)))
-                 (next (St group empty-tseq outer) t)))
-              ((End? h)
-               (begin
-                 (unless ctor
-                   (error "unopened grouping" h))
-                 (let ((ge (ctor buf))
-                       (outer (St-outer st)))
-                   ;;(writeln (list 'outer outer))
-                   (if outer
-                       (next (buf-put outer ge) t)
-                       (tseq-cons ge (next (new-St) t))))))
-              (else
-               (if ctor
-                   (next (buf-put st h) t)
-                   (tseq-cons h (next st t))))
-              )))))))
+               (unless st
+                 (error "unopened grouping" h))
+               (let ((ge ((St-ctor st) (St-buf st)))
+                     (outer (St-outer st)))
+                 ;;(writeln (list 'outer outer))
+                 (if outer
+                     (next (buf-put outer ge) t)
+                     (tseq-cons ge (next #f t))))))
+            (else
+             (if st
+                 (next (buf-put st h) t)
+                 (tseq-cons h (next st t))))
+            ))))))
 
 (define* gr (Group))
 (define* end (End))
