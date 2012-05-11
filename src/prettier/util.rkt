@@ -99,6 +99,13 @@
        (abstract-struct* nm () #:transparent)
        (data-for* nm lst)))))
 
+(define-syntax* data/expose*
+  (syntax-rules ()
+    ((_ nm lst)
+     (begin
+       (struct* nm () #:transparent)
+       (data-for* nm lst)))))
+
 (define-syntax* data/anno*
   (syntax-rules ()
     ((_ nm lst)

@@ -19,19 +19,22 @@ Tokens and token sequences/streams.
 ;; Spacer supports Space, Anno, and /Anno tokens, dropping them or
 ;; translating them into something else. Otherwise it is token
 ;; agnostic.
-(data* Token ((Nest lv) ;; Lv -> Token
-              (Text s) ;; string -> Token
-              (Line) ;; -> Token
-              (Union l r sh) ;; stream, stream, function -> Token
-              (Width w) ;; rational -> Token
-              (Space s sh) ;; string, rational -> Token
-              (Anno lst) ;; list of symbol -> Token
-              (/Anno lst) ;; list of symbol -> Token
-              (Group) ;; -> Token
-              (End) ;; -> Token
-              ))
+(data/expose* Token ((Nest lv) ;; Lv -> Token
+                     (Text s) ;; string -> Token
+                     (Line) ;; -> Token
+                     (Union l r sh) ;; stream, stream, function -> Token
+                     (Width w) ;; rational -> Token
+                     (Space s sh) ;; string, rational -> Token
+                     (Anno lst) ;; list of symbol -> Token
+                     (/Anno lst) ;; list of symbol -> Token
+                     ))
 
 #|
+
+Token sequence. Prepends and appends are constant time, but lookups
+may be slower. Might want to replace with a proper functional list,
+which could probably still have the same Scheme pair based
+representation.
 
 Example usage:
 

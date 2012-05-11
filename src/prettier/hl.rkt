@@ -89,7 +89,45 @@
 ;; xxx add support for 'fill' such that Line() separates the elements
 ;; of a fill list
 
-;; Lazily turns Group/End ranges into nested 'group' constructions.
+(struct* Begin Token () #:transparent)
+(struct* End Token () #:transparent)
+(struct* Group Begin () #:transparent)
+(struct* Fill Begin () #:transparent)
+
+;; open?:: whether a token opens this grouping
+;; new:: creates fresh state for this grouping
+;; put:: buffers a token within region
+;; accept:: accepts a token from an inner grouping into this one
+;; end:: ends this grouping
+;; eof:: handles an EOF within this grouping
+(struct Grouping (name open? new put accept end eof) #:transparent)
+
+;; buf:: buffered tokens (tseq)
+(struct GSt (buf) #:transparent)
+
+(define grouping
+  (Grouping
+   'group
+   Group? ;; open?
+   (lambda () (GSt empty-tseq)) ;; new
+   (lambda (st e) (GSt (tseq-put (GSt-buf st) e))) ;; put
+   (lambda (st e name) ;; accept
+     (GSt (tseq-put (GSt-buf st) e)))
+   (lambda (st) ;; end
+     (let ((ge (group (GSt-buf st))))
+       ge))
+   (lambda (st) (error "unclosed grouping" (GSt-buf st))) ;; eof
+   ))
+
+(define g-lst (list grouping))
+
+(define (get-grouping t)
+  (or (findf (lambda (gr)
+               (let ((open? (Grouping-open? gr)))
+                 (open? t))) g-lst)
+      (error "get-grouping: not found" t)))
+
+;; Lazily turns group/End ranges into nested grouping constructions.
 ;;
 ;; Note that 's' must be complete, with matching numbers of opening
 ;; and closing tokens. We are currently not providing a way to suspend
@@ -98,38 +136,59 @@
 ;; easily refactor to allow for that, as we already internally
 ;; maintain explicit grouping state.
 (define* (group-stream s)
-  ;; ctor:: constructs tseq given buffer contents (function or #f)
-  ;; buf:: buffered tokens (tseq)
-  ;; outer:: outer grouping (St or #f)
-  (struct St (ctor buf outer) #:transparent)
+  ;; type:: grouping type (Grouping)
+  ;; st:: grouping state (any)
+  (struct Grp (type st) #:transparent)
 
-  (define (buf-put st e)
-    (struct-copy St st (buf (tseq-put (St-buf st) e))))
-  
+  ;; grp:: current grouping (Grp or #f)
+  ;; outer:: outer state (St or #f)
+  (struct St (grp outer) #:transparent)
+
   (let next ((st #f) (s s))
     (lazy ;; even laziness
      (let-values (((h t) (tseq-get s)))
        ;;(writeln (list 'h h 't t 'st st))
        (if (not h)
-           (begin
-             (when st (error "unclosed grouping" (St-buf st)))
+           (let ((outer (and st (St-outer st))))
+             (when outer
+               ((Grouping-eof (Grp-type outer)) (Grp-st outer)))
              s)
            (cond
-            ((Group? h)
-             (next (St group empty-tseq st) t))
+            ((Begin? h)
+             (let* ((g-type (get-grouping h))
+                    (g-st ((Grouping-new g-type)))
+                    (grp (Grp g-type g-st)))
+               (next (St grp st) t)))
             ((End? h)
              (begin
                (unless st
                  (error "unopened grouping" h))
-               (let ((ge ((St-ctor st) (St-buf st)))
-                     (outer (St-outer st)))
-                 ;;(writeln (list 'outer outer))
+               (let* ((grp (St-grp st))
+                      (g-type (Grp-type grp))
+                      (end (Grouping-end g-type))
+                      (g-st (Grp-st grp))
+                      (g-tok (end g-st))
+                      (outer (St-outer st)))
                  (if outer
-                     (next (buf-put outer ge) t)
-                     (tseq-cons ge (next #f t))))))
+                     (let ((name (Grouping-name g-type))
+                           (st outer))
+                       (let* ((outer (St-outer st))
+                              (grp (St-grp st))
+                              (g-type (Grp-type grp))
+                              (g-st (Grp-st grp))
+                              (accept (Grouping-accept g-type))
+                              (n-g-st (accept g-st g-tok name))
+                              (n-grp (Grp g-type n-g-st))
+                              (n-st (St n-grp outer)))
+                         (next n-st t)))
+                     (tseq-cons g-tok (next #f t))))))
             (else
              (if st
-                 (next (buf-put st h) t)
+                 (let* ((grp (St-grp st))
+                        (g-type (Grp-type grp))
+                        (put (Grouping-put g-type))
+                        (g-st (put (Grp-st grp) h)))
+                   (next (St (Grp g-type g-st) (St-outer st)) t))
                  (tseq-cons h (next st t))))
             ))))))
 
@@ -138,4 +197,3 @@
 
 (define* (tseq/gr . lst)
   (group-stream lst))
-
