@@ -25,6 +25,7 @@ Tokens and token sequences/streams.
                      (Union l r sh) ;; stream, stream, function -> Token
                      (Width w) ;; rational -> Token
                      (Space s sh) ;; string, rational -> Token
+                     (Together m) ;; stream -> Token
                      (Anno lst) ;; list of symbol -> Token
                      (/Anno lst) ;; list of symbol -> Token
                      ))
@@ -35,6 +36,10 @@ Token sequence. Prepends and appends are constant time, but lookups
 may be slower. Might want to replace with a proper functional list,
 which could probably still have the same Scheme pair based
 representation.
+
+The nice thing about this design is that only the 'get' operation is
+stream constructor specific. We need not know how to append or prepend
+to a list of given type, we just have to wrap it.
 
 Example usage:
 

@@ -14,14 +14,11 @@
 ;; backward compatibility
 (define* cat tseq)
 
-(define* (union l r (sh default-strength))
-  (Union l r sh))
+(define* union private-union)
 
-(define* (flatten x) ;; tseq -> tseq
-  (private-flatten x))
+(define* flatten private-flatten)
 
-(define* (group x (sh default-strength)) ;; tseq -> tseq
-  (tseq (private-group x sh)))
+(define* group private-group)
 
 (define* (group/cat . xs)
   (group xs))
@@ -91,6 +88,41 @@
   (concat x (private-union (text " ") (line)) y))
 
 |#
+
+;;; 
+;;; filling grouping
+;;; 
+
+(define* (together . xs)
+  (apply Together xs))
+
+;; Builds a grouping such that either (1) the first element is
+;; flattened and the next one follows on the same line (2) the first
+;; element is flattened, with a line break following, (3) group/fill
+;; is called to handle the first element, and a line break follows.
+;; When we speak of flattening we here actually mean joining with
+;; spaces. The input should not contain Line tokens.
+(define* (group/fill x)
+  (define (g s break?)
+    (let-values (((e t) (tseq-get s)))
+      (if (not e)
+          s
+          (if (tseq-empty? t)
+              (if (not break?)
+                  (flatten e)
+                  (union
+                   (flatten e)
+                   (group/fill e)))
+              (let ((flat
+                     (tseq-append (flatten e)
+                                  (union (tseq-cons nbsp (g t #f))
+                                         (tseq-cons br (g t #t))))))
+                (if (not break?)
+                    flat
+                    (union flat
+                           (tseq-append (group/fill e)
+                                        (tseq-cons br (g t #t))))))))))
+  (g x #t))
 
 ;;; 
 ;;; grouping input streams

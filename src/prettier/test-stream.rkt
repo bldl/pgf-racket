@@ -42,6 +42,7 @@
          )
     (list
      (cons "stream group and fill (tseq/gr)" (tseq/gr gr fl (mk-text/lines 10) end br fl (mk-text/lines 20) end end))
+     (cons "nested stream fills (tseq/gr)" (tseq/gr fl "a" br fl fl "b" br fl (mk-text/lines 20) end br "c" end br "d" end end))
      (cons "stream fill (tseq/gr)" (tseq/gr fl (mk-text/lines 20) end))
      (cons "stream group (tseq/gr)" (tseq/gr gr gr "(" align "1 +" br "2" dedent ") *" end br gr "(" align "3 +" br "4 +" br gr "(" align "5 +" br "6 +" br "7" dedent ") +" end br "8" dedent ")" end end))
      (cons "stream group (complex group)" (group-stream (tseq gr gr "(" align "1 +" br "2" dedent ") *" end br gr "(" align "3 +" br "4 +" br gr "(" align "5 +" br "6 +" br "7" dedent ") +" end br "8" dedent ")" end end)))

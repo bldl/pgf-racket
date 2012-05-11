@@ -225,20 +225,21 @@
 ;;; grouping construct
 ;;; 
 
+;; cw:: full page width (integer)
+;; i:: current indentation string (string)
+;; k:: current column (integer)
+;; Returns:: new page width (integer)
 (define* (default-strength cw i k)
   cw)
 
 ;; l:: left choice (tseq of Token)
 ;; r:: right choice (tseq of Token)
-;; sh:: eagerness to choose first fitting fragment (rational)
-;; Returns:: Token
+;; sh:: page width computation function (function)
+;; Returns:: tseq of Token
 (define* (private-union l r (sh default-strength))
   (Union l r sh))
 
-;; Behaves lazily. Note the use of stateless iterators to avoid the
-;; cost of creating a new closure for every iteration. This is
-;; inspired by Lua's ipairs, although we require no invariant state.
-;; http://www.lua.org/pil/7.3.html
+;; Behaves lazily.
 (define* (private-flatten ts) ;; tseq of Token -> tseq of Token
   (if (tseq-empty? ts)
       ts
@@ -249,9 +250,11 @@
           (tseq-cons/lazy (Text " ") (private-flatten ts)))
          ((Union? t)
           (private-flatten (tseq-append/lazy (Union-l t) ts)))
+         ((Together? t)
+          (private-flatten (tseq-append/lazy (Together-m t) ts)))
          (else
           (tseq-cons/lazy t (private-flatten ts)))))))
 
- ;; tseq of Token -> Token
+ ;; tseq of Token -> tseq of Token
 (define* (private-group ts (sh default-strength))
   (private-union (private-flatten ts) ts sh))
