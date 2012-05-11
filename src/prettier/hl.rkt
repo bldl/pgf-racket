@@ -48,6 +48,9 @@
 (define* (sep-by sep s)
   (tseq-add-between s sep))
 
+(define* (sep-by/elems sep elems)
+  (add-between elems sep))
+
 (define* (nest n doc)
   (cat (indent n) doc dedent))
 
@@ -58,14 +61,21 @@
 ;;; ala Wadler
 ;;; 
 
-(define* (stack doc)
-  (sep-by (Line) doc))
+(define* (stack s)
+  (sep-by br s))
 
-(define* (fill elems)
-  (sep-by sp elems))
+(define* (fill s)
+  (sep-by sp s))
 
 (define* (fillwords s)
   (fill (words s)))
+
+(define* (stack/elems elems)
+  (sep-by/elems br elems))
+
+(define* (fill/elems elems)
+  (sep-by/elems sp elems))
+
 
 #|
 
@@ -86,14 +96,12 @@
 ;;; grouping input streams
 ;;; 
 
-;; xxx add support for 'fill' such that Line() separates the elements
-;; of a fill list
-
 (struct* Begin Token () #:transparent)
 (struct* End Token () #:transparent)
 (struct* Group Begin () #:transparent)
 (struct* Fill Begin () #:transparent)
 
+;; This is the interface to implement for each type of grouping.
 ;; open?:: whether a token opens this grouping
 ;; new:: creates fresh state for this grouping
 ;; put:: buffers a token within region
@@ -105,21 +113,47 @@
 ;; buf:: buffered tokens (tseq)
 (struct GSt (buf) #:transparent)
 
-(define grouping
-  (Grouping
-   'group
-   Group? ;; open?
-   (lambda () (GSt empty-tseq)) ;; new
-   (lambda (st e) (GSt (tseq-put (GSt-buf st) e))) ;; put
-   (lambda (st e name) ;; accept
-     (GSt (tseq-put (GSt-buf st) e)))
-   (lambda (st) ;; end
-     (let ((ge (group (GSt-buf st))))
-       ge))
-   (lambda (st) (error "unclosed grouping" (GSt-buf st))) ;; eof
-   ))
+;; s:: stream for current "word" (tseq or #f)
+;; lst:: lst of "words" (list of tseq)
+(struct FSt (s lst) #:transparent)
 
-(define g-lst (list grouping))
+(define (g-put st e (name #f))
+  (GSt (tseq-put (GSt-buf st) e)))
+
+(define (f-put st e (name #f))
+  (let ((s (FSt-s st))
+        (lst (FSt-lst st)))
+    (if (Line? e)
+        (FSt empty-tseq (cons s lst))
+        (FSt (tseq-put s e) lst))))
+
+(define g-lst
+  (list
+   (Grouping
+    'group
+    Group? ;; open?
+    (lambda () (GSt empty-tseq)) ;; new
+    g-put ;; put
+    g-put ;; accept
+    (lambda (st) ;; end
+      (let ((ge (group (GSt-buf st))))
+        ge))
+    (lambda (st) (error "unclosed Group" (GSt-buf st))) ;; eof
+    )
+   (Grouping
+    'fill
+    Fill? ;; open?
+    (lambda () (FSt empty-tseq '())) ;; new
+    f-put ;; put
+    f-put ;; accept
+    (lambda (st) ;; end
+      (let ((lst (cons (FSt-s st) (FSt-lst st))))
+        (fill/elems (reverse lst))))
+    (lambda (st) ;; eof
+      (error "unclosed Fill"
+             (cons (reverse (FSt-lst st)) (FSt-s st))))
+    )
+   ))
 
 (define (get-grouping t)
   (or (findf (lambda (gr)
@@ -193,6 +227,7 @@
             ))))))
 
 (define* gr (Group))
+(define* fl (Fill))
 (define* end (End))
 
 (define* (tseq/gr . lst)

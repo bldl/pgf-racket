@@ -17,6 +17,12 @@
 
 (define w-lst '(5 10 15 25 35 55 75))
 
+(define (mk-text n) ;; integer -> tseq
+  (map (compose Text number->string) (for/list ((i n)) i)))
+
+(define (mk-text/lines n) ;; integer -> tseq
+  (add-between (mk-text n) br))
+
 (define d-lst
   (let* (
          (d1 (tseq (Text "first") (Line)
@@ -31,12 +37,12 @@
               (Text "'") (Text "(")
               align
               (group
-               (add-between
-                (map (compose Text number->string) (for/list ((i 10)) i))
-                (Line))) dedent
+               (add-between (mk-text 10) (Line))) dedent
               (Text ")")))
          )
     (list
+     (cons "stream group and fill (tseq/gr)" (tseq/gr gr fl (mk-text/lines 10) end br fl (mk-text/lines 20) end end))
+     (cons "stream fill (tseq/gr)" (tseq/gr fl (mk-text/lines 20) end))
      (cons "stream group (tseq/gr)" (tseq/gr gr gr "(" align "1 +" br "2" dedent ") *" end br gr "(" align "3 +" br "4 +" br gr "(" align "5 +" br "6 +" br "7" dedent ") +" end br "8" dedent ")" end end))
      (cons "stream group (complex group)" (group-stream (tseq gr gr "(" align "1 +" br "2" dedent ") *" end br gr "(" align "3 +" br "4 +" br gr "(" align "5 +" br "6 +" br "7" dedent ") +" end br "8" dedent ")" end end)))
      (cons "stream group (double group)" (group-stream (tseq gr gr "1 +" br "2 +" br "3" end end)))
