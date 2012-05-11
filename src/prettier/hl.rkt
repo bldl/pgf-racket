@@ -120,8 +120,7 @@
                 (if (not break?)
                     flat
                     (union flat
-                           (tseq-append (group/fill e)
-                                        (tseq-cons br (g t #t))))))))))
+                           (tseq-append (group/fill e) br (g t #t)))))))))
   (g x #t))
 
 ;;; 

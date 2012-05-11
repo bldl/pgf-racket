@@ -144,6 +144,9 @@
               (struct-copy FmtSt st
                            (w (Width-w d))
                            (inDoc inDoc)))
+             ((Together? d)
+              (struct-copy FmtSt st
+                           (inDoc (tseq-append (Together-m d) inDoc))))
              (else (error "process-token: unexpected" d))
              ))))))
 
