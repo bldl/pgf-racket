@@ -93,8 +93,11 @@
 ;;; filling grouping
 ;;; 
 
+;; The point of this construction is that the tseq abstraction will
+;; not go inside it. Rather, it will return the whole thing as a
+;; single token.
 (define* (together . xs)
-  (apply Together xs))
+  (Together xs))
 
 ;; Builds a grouping such that either (1) the first element is
 ;; flattened and the next one follows on the same line (2) the first
@@ -103,25 +106,29 @@
 ;; When we speak of flattening we here actually mean joining with
 ;; spaces. The input should not contain Line tokens.
 (define* (group/fill x)
+  ;; s:: tokens to preferably be kept together (tseq)
+  ;; break?:: whether breaking of the first token is allowed (boolean)
   (define (g s break?)
     (let-values (((e t) (tseq-get s)))
-      (if (not e)
-          s
-          (if (tseq-empty? t)
-              (if (not break?)
-                  (flatten e)
-                  (union
-                   (flatten e)
-                   (group/fill e)))
-              (let ((flat
-                     (tseq-append (flatten e)
-                                  (union (tseq-cons nbsp (g t #f))
-                                         (tseq-cons br (g t #t))))))
-                (if (not break?)
-                    flat
-                    (union flat
-                           (tseq-append (group/fill e) br (g t #t)))))))))
-  (g x #t))
+      (cond
+       ((not e) s)
+       ((tseq-empty? t)
+        (let ((flat (flatten e)))
+          (if (not break?)
+              flat
+              (union flat (group/fill e)))))
+       (else
+        (let ((flat
+               (tseq-append (flatten e)
+                            (union (tseq-cons nbsp (g t #f))
+                                   (tseq-cons br (g t #t))))))
+          (if (not break?)
+              flat
+              (union flat
+                     (tseq-append (group/fill e) br (g t #t)))))))))
+  (if (Together? x)
+      (g (Together-m x) #t)
+      x))
 
 ;;; 
 ;;; grouping input streams
