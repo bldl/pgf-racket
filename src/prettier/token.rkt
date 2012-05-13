@@ -26,6 +26,7 @@ Tokens and token sequences/streams.
                      (Width w) ;; rational -> Token
                      (Space s sh) ;; string, rational -> Token
                      (Together m) ;; stream -> Token
+                     (SpaceT s) ;; string -> Token
                      (Anno lst) ;; list of symbol -> Token
                      (/Anno lst) ;; list of symbol -> Token
                      ))

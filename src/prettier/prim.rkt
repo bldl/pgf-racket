@@ -255,6 +255,8 @@
           (private-flatten (tseq-append/lazy (Union-l t) ts)))
          ((Together? t)
           (private-flatten (tseq-append/lazy (Together-m t) ts)))
+         ((SpaceT? t)
+          (private-flatten (tseq-cons/lazy (Text (SpaceT-s t)) ts)))
          (else
           (tseq-cons/lazy t (private-flatten ts)))))))
 
