@@ -100,7 +100,8 @@
   (Together xs))
 
 ;; This kind of space appears as Line() in some choice contexts, and
-;; as Text(s) in others.
+;; as Text(s) in others. In effect it's less eager to break than a
+;; Line().
 (define* tsp (SpaceT " "))
 
 ;; This function makes it easier to build relatively complicated
@@ -108,10 +109,10 @@
 ;; as domain-specific language and translates them away.
 ;;
 ;; It is possible to achieve something similar with 'group' and 'sp'
-;; instead of 'together' and 'tsp', respectively, but the latter pair
-;; of constructions have an interdependency that may be useful for
-;; certain layout effects. The behavior of 'tsp' depends on how well
-;; neighboring 'together' constructions fit.
+;; and 'br' instead of 'together' and 'sp' and 'tsp', respectively,
+;; but the latter pair of constructions have an interdependency that
+;; may be useful for certain layout effects. The behavior of 'tsp'
+;; depends on how well neighboring 'together' constructions fit.
 ;;
 ;; For example, one may build a grouping such that either (1) the
 ;; first element is flattened and the next one follows on the same
