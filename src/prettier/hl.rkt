@@ -103,67 +103,50 @@
 ;; as Text(s) in others.
 (define* tsp (SpaceT " "))
 
-;; Builds a grouping such that either (1) the first element is
-;; flattened and the next one follows on the same line (2) the first
-;; element is flattened, with a line break following, (3) group/fill
-;; is called to handle the first element, and a line break follows.
-;; When we speak of flattening we here actually mean joining with
-;; spaces. The input should not contain Line tokens.
+;; This function makes it easier to build relatively complicated
+;; Union-based constructions. It recognizes SpaceT and Together tokens
+;; as domain-specific language and translates them away.
 ;;
-;; xxx better implement lazily - can simply have 'g' return a promise
+;; It is possible to achieve something similar with 'group' and 'sp'
+;; instead of 'together' and 'tsp', respectively, but the latter pair
+;; of constructions have an interdependency that may be useful for
+;; certain layout effects. The behavior of 'tsp' depends on how well
+;; neighboring 'together' constructions fit.
+;;
+;; For example, one may build a grouping such that either (1) the
+;; first element is flattened and the next one follows on the same
+;; line (2) the first element is flattened, with a line break
+;; following, (3) group/fill is called to handle the first element,
+;; and a line break follows.
 (define* (group/fill x)
   ;; s:: input (tseq)
   ;; break?:: whether breaking first token is allowed (boolean)
   ;; br?:: whether first SpaceT token must be output as a Line (boolean)
   (define (g s break? #:tsp-br? (br? #f))
-    (let-values (((e t) (tseq-get s)))
-      (if (not e) s
-          (let ((next? (not (tseq-empty? t))))
-            (cond
-             ((SpaceT? e)
-              (cond
-               (br? (tseq-cons br (g t #t)))
-               ((not break?) (tseq-cons (flatten e) (g t break?)))
-               ((not next?) (union (flatten e) br))
-               (else (union (tseq-cons (flatten e) (g t #f))
-                            (tseq-cons br (g t #t))))))
-             ((Together? e)
-              (let ((m (Together-m e)))
-                (cond
-                 ((not break?) (tseq-append (flatten m) (g t #t)))
-                 ((not next?) (union (flatten m) (group/fill m)))
-                 (else (union (tseq-append (flatten m) (g t #f))
-                              (tseq-append (union (flatten m)
-                                                  (group/fill m))
-                                           (g t #t #:tsp-br? #t)))))))
-             (else
-              (tseq-cons e (group/fill t))))))))
+    (lazy
+     (let-values (((e t) (tseq-get s)))
+       (if (not e) s
+           (let ((next? (not (tseq-empty? t))))
+             (cond
+              ((SpaceT? e)
+               (cond
+                (br? (tseq-cons br (g t #t)))
+                ((not break?) (tseq-cons (flatten e) (g t break?)))
+                ((not next?) (union (flatten e) br))
+                (else (union (tseq-cons (flatten e) (g t #f))
+                             (tseq-cons br (g t #t))))))
+              ((Together? e)
+               (let ((m (Together-m e)))
+                 (cond
+                  ((not break?) (tseq-append (flatten m) (g t #t)))
+                  ((not next?) (union (flatten m) (group/fill m)))
+                  (else (union (tseq-append (flatten m) (g t #f))
+                               (tseq-append (union (flatten m)
+                                                   (group/fill m))
+                                            (g t #t #:tsp-br? #t)))))))
+              (else
+               (tseq-cons e (group/fill t)))))))))
   (g x #t))
-
-(define* (group/fill/old x)
-  ;; s:: tokens to preferably be kept together (tseq)
-  ;; break?:: whether breaking of the first token is allowed (boolean)
-  (define (g s break?)
-    (let-values (((e t) (tseq-get s)))
-      (cond
-       ((not e) s)
-       ((tseq-empty? t)
-        (let ((flat (flatten e)))
-          (if (not break?)
-              flat
-              (union flat (group/fill e)))))
-       (else
-        (let ((flat
-               (tseq-append (flatten e)
-                            (union (tseq-cons nbsp (g t #f))
-                                   (tseq-cons br (g t #t))))))
-          (if (not break?)
-              flat
-              (union flat
-                     (tseq-append (group/fill e) br (g t #t)))))))))
-  (if (Together? x)
-      (g (Together-m x) #t)
-      x))
 
 ;;; 
 ;;; grouping input streams

@@ -21,7 +21,7 @@
          )
     (list
      (list "comparison 1 (group)" '(20) (group/cat (group/cat "(" align "1 +" br "2" dedent ") *") br (group/cat "(" align "3 +" br "4 +" br (group/cat "(" align "5 +" br "6 +" br "7" dedent ") +") br "8" dedent ")")))
-     (list "comparison 1 (group/fill)" '(20 30 40 15 10 7) (group/fill (together (together "(" align "1 +" sp "2" dedent ") *") tsp (together "(" align "3 +" sp "4 +" tsp (together "(" align "5 +" sp "6 +" sp "7" dedent ") +") tsp "8" dedent ")"))))
+     (list "comparison 1 (group/fill)" '(20 40 30 15 10 7) (group/fill (together (together "(" align "1 +" sp "2" dedent ") *") tsp (together "(" align "3 +" sp "4 +" tsp (together "(" align "5 +" sp "6 +" sp "7" dedent ") +") tsp "8" dedent ")"))))
      )))
 
 (define (main)
