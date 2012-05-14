@@ -132,6 +132,28 @@ directly over a tseq.
    ((Ipairs? s) ((Ipairs-get s) (Ipairs-st s)))
    (else (error "tseq-get: not a tseq" s))))
 
+(define* (tseq->list s)
+  (let loop ((r '()) (s s))
+    (let-values (((h t) (tseq-get s)))
+      (if (not h) (reverse r)
+          (loop (cons h r) t)))))
+
+(define* (tseq-optimize s)
+  (cond
+   ((pair? s) (let* ((l (car s))
+                     (r (cdr s))
+                     (lst (filter (negate false?) (list l r))))
+                (apply append (map tseq-optimize lst))))
+   ((null? s) s)
+   ((Union? s) (list (Union (tseq-optimize (Union-l s))
+                            (tseq-optimize (Union-r s))
+                            (Union-sh s))))
+   ((Token? s) (list s))
+   ((string? s) (list (Text s)))
+   ((promise? s) (tseq-optimize (force s)))
+   ((Ipairs? s) (list s))
+   (else (error "tseq-optimize: not a tseq" s))))
+
 (define* (tseq-foreach f s)
   (let-values (((h t) (tseq-get s)))
     (when h

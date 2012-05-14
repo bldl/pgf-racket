@@ -1,6 +1,7 @@
 #lang racket
 
 (require "hl.rkt")
+(require "introspect.rkt")
 (require "prim.rkt")
 (require "token.rkt")
 (require "util.rkt")
@@ -31,6 +32,7 @@
        (let ((t (first d))
              (w-lst (second d))
              (d (third d)))
+         (pretty-println (tseq-to-sexp (tseq-optimize d)))
          (for ((w w-lst))
               (test-doc w t d)))))
       

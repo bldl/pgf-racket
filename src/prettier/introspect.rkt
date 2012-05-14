@@ -1,33 +1,37 @@
 #lang racket
 
 (require "prim.rkt")
+(require "token.rkt")
 (require "util.rkt")
 
 ;;; 
 ;;; Introspection utilities.
 ;;; 
 
-(define* (DOC-to-sexp doc)
-  (cond
-   ((LAZY? doc) `(susp ,(aif x (LAZY-doc doc) (DOC-to-sexp x) #f)))
-   ((NIL? doc) '(nil))
-   ((CONCAT? doc) `(concat ,(DOC-to-sexp (CONCAT-ldoc doc))
-                           ,(DOC-to-sexp (CONCAT-rdoc doc))))
-   ((NEST? doc) (let ((lv (NEST-lv doc))
-                      (doc (DOC-to-sexp (NEST-doc doc))))
+;; Prints the full document; i.e. expands all promises. Only the
+;; primitive token types may appear. The document need not be
+;; formatted, however.
+(define* (tseq-to-sexp s)
+  (map
+   (lambda (t)
+     (cond
+      ((Text? t) `(text ,(Text-s t)))
+      ((Line? t) '(br))
+      ((Space? t) `(space ,(Space-s t)))
+      ((Union? t) `(union ,(tseq-to-sexp (Union-l t))
+                          ,(tseq-to-sexp (Union-r t))))
+      ((Nest? t) (let ((lv (Nest-lv t)))
                   (cond
-                   ((LvInc? lv) `(nest ,(LvInc-n lv) ,doc))
-                   ((LvStr? lv) `(nest/str ,(LvStr-s lv) ,doc))
-                   ((LvAbs? lv) `(nest/abs ,(LvAbs-n lv) ,doc))
-                   ((LvRel? lv) `(nest/rel ,(LvRel-n lv) ,doc))
-                   (else (error "unexpected" lv)))))
-   ((TEXT? doc) `(text ,(TEXT-s doc)))
-   ((LINE? doc) `(line ,(LINE-s doc)))
-   ((UNION? doc) `(union ,(UNION-str/val doc)
-                         ,(DOC-to-sexp (UNION-ldoc doc))
-                         ,(DOC-to-sexp (UNION-rdoc doc))))
-   (else (error "DOC-to-sexp: unexpected" doc))))
+                   ((LvInc? lv) `(nest/inc ,(LvInc-n lv)))
+                   ((LvStr? lv) `(nest/str ,(LvStr-s lv)))
+                   ((LvAbs? lv) `(nest/abs ,(LvAbs-n lv)))
+                   ((LvRel? lv) `(nest/rel ,(LvRel-n lv)))
+                   ((LvPop? lv) '(/nest))
+                   (else (error "tseq-to-sexp: unexpected level" lv)))))
+      (else (error "tseq-to-sexp: unexpected token" t))))
+   (tseq->list (tseq-optimize s))))
 
+#;
 (define* (DOC-to-string doc)
   (define (concat? x)
     (and (list? x) (not (null? x))
@@ -60,6 +64,7 @@
                          ,(DOC-to-string (UNION-rdoc doc))))
    (else (error "DOC-to-string: unexpected" doc))))
 
+#;
 (define* (Doc-to-sexp doc)
   (cond
    ((Nil? doc) '(nil))
