@@ -122,7 +122,7 @@ of expressions, while we otherwise use the default strength.
 
 ;; Breakable point.
 (define (breakable/current (sh default-strength))
-  (union empty-stream (current-line) sh))
+  (union empty-tseq (current-line) sh))
 
 (define-syntax-rule
   (in-cpp body ...)
@@ -161,7 +161,7 @@ of expressions, while we otherwise use the default strength.
             (set! lst (cons elem lst)))
           (recur (- n 1) elem))))
     (if (null? lst)
-        empty-stream
+        empty-tseq
         (apply cat (reverse lst)))))
 
 ;;; 
@@ -184,7 +184,7 @@ of expressions, while we otherwise use the default strength.
    (Text "}")))
 
 (define (stack/2-ln doc)
-  (sep-by (stream (Line) (Line)) doc))
+  (sep-by/elems (tseq (Line) (Line)) doc))
 
 ;; Puts opening "{" on a separate line (following any 'pre').
 (define (indented-block #:pre (pre #f)
@@ -225,7 +225,7 @@ of expressions, while we otherwise use the default strength.
     (let ((sep (infix op-txt depth)))
       (maybe-parens
        (not outer?)
-       (sep-by sep exprs)))))
+       (sep-by/elems sep exprs)))))
 
 (define (c-if-expr c t e ctx)
   (maybe-parens (eq? ctx 'inner)
@@ -238,7 +238,7 @@ of expressions, while we otherwise use the default strength.
             align (group x) dedent (Text ")"))))
 
 (define (c-qual-type-inst n args)
-  (let* ((x (group (sep-by (cat "," (Line)) args))))
+  (let* ((x (group (sep-by/elems (cat "," (Line)) args))))
     (cat n (breakable/current) (Text "{")
             align x dedent (Text "}"))))
 
@@ -269,9 +269,9 @@ of expressions, while we otherwise use the default strength.
 (define (c-if-stmt c t-lst (e-lst '()))
   (two-block
    (cat (Text "if (") c (Text ")"))
-   (and (not (null? t-lst)) (stack t-lst))
+   (and (not (null? t-lst)) (stack/elems t-lst))
    (Text "else")
-   (and (not (null? e-lst)) (stack e-lst))))
+   (and (not (null? e-lst)) (stack/elems e-lst))))
 
 (define (c-func modifs rtype name params stmts #:doc (doc-s #f))
   (cat
@@ -293,7 +293,7 @@ of expressions, while we otherwise use the default strength.
    (Text "{")
    (and (not (null? stmts))
         (ind-cat (Line)
-                 (stack stmts)))
+                 (stack/elems stmts)))
    (Line) (Text "}")))
 
 (define (c-line-comment s)
