@@ -27,13 +27,27 @@ Wadler's XML example for this purpose.
 (define IN (indent 2))
 (define EX dedent)
 
+(define (show-empty-tag/basic n a)
+  (tseq (text "<") (showTag n a) (text "/>")))
+
+(define (disallow-narrow w i k)
+  (let ((si (string-length i)))
+    (if (> si 6) 0 w)))
+
+(define (show-empty-tag n a)
+  (union
+   (tseq (text "<") (showTag n a) (text ">")
+         (text "</") (text n) (text ">"))
+   (show-empty-tag/basic n a)
+   disallow-narrow))
+
 ;; Xml -> DOC
 (define (showXML x)
   (match
    x
    ((Elt n a c)
     (if (null? c)
-        (tseq (text "<") (showTag n a) (text "/>"))
+        (show-empty-tag n a)
         (tseq (text "<") (showTag n a) (text ">")
               (showFill showXML c)
               (text "</") (text n) (text ">"))))
@@ -166,10 +180,9 @@ Wadler's XML example for this purpose.
 (define d-lst
   (let* (
          (pop (Nest (LvPop)))
-         (when-narrow (lambda (w i k) (let ((si (string-length i))) (if (> si (/ w 2)) 0 w))))
          )
     (list
-     (list "random XML" '(80 40 20) (showXML (random-elt)))
+     (list "random XML" '(70) (showXML (random-elt)))
      ;;(list "XML document" '(80 25) (showXML xml-doc-1))
      )))
 
