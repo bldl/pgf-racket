@@ -113,13 +113,13 @@
 
 ;; Breakable point.
 (define (breakable/current)
-  (union/default empty-stream (current-line)))
+  (union/default empty-tseq (current-line)))
 (define (breakable/strong)
-  (union/strong empty-stream (current-line)))
+  (union/strong empty-tseq (current-line)))
 (define (breakable/medium)
-  (union/medium empty-stream (current-line)))
+  (union/medium empty-tseq (current-line)))
 (define (breakable/weak)
-  (union/weak empty-stream (current-line)))
+  (union/weak empty-tseq (current-line)))
 
 (define-syntax-rule
   (in-cpp body ...)
@@ -168,7 +168,7 @@
             (set! lst (cons elem lst)))
           (recur (- n 1) elem))))
     (if (null? lst)
-        empty-stream
+        empty-tseq
         (apply cat (reverse lst)))))
 
 ;;; 
@@ -199,7 +199,7 @@
    (Text "}")))
 
 (define (stack/2-ln doc)
-  (sep-by (stream (Line) (Line)) doc))
+  (sep-by/elems (tseq (Line) (Line)) doc))
 
 ;; Puts opening "{" on a separate line (following any 'pre').
 (define (indented-block #:pre (pre #f)
@@ -243,7 +243,7 @@
     (let ((sep ((if outer? infix infix/medium) "+")))
       (maybe-parens
        (not outer?)
-       (sep-by sep exprs)))))
+       (sep-by/elems sep exprs)))))
 
 (define (c-if-expr/fill c t e ctx)
   (maybe-parens (eq? ctx 'inner)
@@ -260,7 +260,7 @@
             align (group x strong-sh) dedent (Text ")"))))
 
 (define (c-qual-type-inst n args)
-  (let* ((x (group (sep-by (cat "," (Line)) args) strong-sh)))
+  (let* ((x (group (sep-by/elems (cat "," (Line)) args) strong-sh)))
     (cat n (breakable/weak) (Text "{")
             align x dedent (Text "}"))))
 
@@ -291,9 +291,9 @@
 (define (c-if-stmt c t-lst (e-lst '()))
   (two-block
    (cat (Text "if (") c (Text ")"))
-   (and (not (null? t-lst)) (stack t-lst))
+   (and (not (null? t-lst)) (stack/elems t-lst))
    (Text "else")
-   (and (not (null? e-lst)) (stack e-lst))))
+   (and (not (null? e-lst)) (stack/elems e-lst))))
 
 (define (c-func modifs rtype name params stmts #:doc (doc-s #f))
   (cat
@@ -315,7 +315,7 @@
    (Text "{")
    (and (not (null? stmts))
         (ind-cat (Line)
-                 (stack stmts)))
+                 (stack/elems stmts)))
    (Line) (Text "}")))
 
 (define (c-line-comment s)
@@ -559,7 +559,7 @@
      ;;(cons "top-level declaration" (random-decl 'tl 1))
      ;;(cons "empty struct" (c-struct (Text "EmptyStruct") (list)))
      ;;(cons "struct with one member" (c-struct (Text "SmallStruct") (list (random-vardecl 'member))))
-     ;; (cons "nothing" empty-stream)
+     ;; (cons "nothing" empty-tseq)
      ;; (cons "break statement" break-1)
      ;; (cons "nested if statement with complex condition" (c-if-stmt (fillwords "1 && 2 && 1==2 && defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__") if-1))
      ;; (cons "#if-else" (cpp-if-else "defined(__FOO__) || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__ || !defined(__BAR__) || __FOOBAR__ || !__BAZ__" (Text "return 1;") (Text "return 2;")))

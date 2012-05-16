@@ -42,7 +42,7 @@
 
 (define* (exdent n) (Nest (LvInc (- n))))
 
-(define* (sep-by sep s)
+(define* (sep-by/tokens sep s)
   (tseq-add-between s sep))
 
 (define* (sep-by/elems sep elems)
@@ -58,14 +58,11 @@
 ;;; ala Wadler
 ;;; 
 
-(define* (stack s)
-  (sep-by br s))
+(define* (stack/tokens s)
+  (sep-by/tokens br s))
 
-(define* (fill s)
-  (sep-by sp s))
-
-(define* (fillwords s)
-  (fill (words s)))
+(define* (fill/tokens s)
+  (sep-by/tokens sp s))
 
 (define* (stack/elems elems)
   (sep-by/elems br elems))
@@ -73,6 +70,8 @@
 (define* (fill/elems elems)
   (sep-by/elems sp elems))
 
+(define* (fillwords s)
+  (fill/elems (words s)))
 
 #|
 

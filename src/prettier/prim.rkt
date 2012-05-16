@@ -231,7 +231,7 @@
 ;; cw:: full page width (integer)
 ;; i:: current indentation string (string)
 ;; k:: current column (integer)
-;; Returns:: new page width (integer)
+;; Returns:: left choice page width (number)
 (define* (default-strength cw i k)
   cw)
 
