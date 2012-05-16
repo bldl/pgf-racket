@@ -46,7 +46,7 @@ Wadler's XML example for this purpose.
 (define (showFill f xs)
   (if (null? xs)
       empty-tseq
-      (group/cat IN br (fill/elems (map f xs)) EX br)))
+      (tseq IN br (sep-by/elems br (map f xs)) EX br)))
 
 ;; Attr -> DOC
 (define (showAtt x)
@@ -69,8 +69,6 @@ Wadler's XML example for this purpose.
 (define (one-in? n)
   (= (random n) 0))
 
-(define one-in-three? (fix one-in? 3))
-
 (define ascii-lst
   (for/list ((i (in-range 128)))
             (integer->char i)))
@@ -91,7 +89,7 @@ Wadler's XML example for this purpose.
   (list-ref lst (random (length lst))))
 
 (define (random/from-range a b)
-  (+ a (random (- b a))))
+  (+ a (random (+ (- b a) 1))))
 
 (define (random-string n lst)
   (apply string (times/list n (random/from-list lst))))
@@ -130,14 +128,17 @@ Wadler's XML example for this purpose.
   (Txt (random-sentence)))
 
 (define (deeper? lv)
-  (> (- 10 lv) (random 10)))
+  (> (- 10 lv) (random 12)))
 
 (define (random-elt (lv 1))
   (Elt (random-name)
        (times/list (random/from-range 0 2) (random-att))
-       (if (one-in-three?)
-           (list (random-txt))
-           (times/list (if (deeper? lv) 3 0) (random-elt (+ lv 1))))))
+       (cond
+        ((one-in? 3) '())
+        ((deeper? lv) (times/list 3 (random-elt (+ lv 1))))
+        ((one-in? 2) (list (random-txt)))
+        (else '())
+        )))
 
 ;;; 
 ;;; test runner
