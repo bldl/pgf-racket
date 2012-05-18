@@ -27,19 +27,31 @@ Wadler's XML example for this purpose.
 (define IN (indent 2))
 (define EX dedent)
 
-(define (show-empty-tag/basic n a)
-  (tseq (text "<") (showTag n a) (text "/>")))
+(define (empty-elt->tseq/basic n a)
+  (tseq (text "<") (tag->tseq n a) (text "/>")))
+
+#|
 
 (define (disallow-narrow w i k)
   (let ((si (string-length i)))
-    (if (> si 6) 0 w)))
+    (if (>= si (/ w 10)) 0 w)))
 
-(define (show-empty-tag n a)
+(define (empty-elt->tseq n a)
   (union
-   (tseq (text "<") (showTag n a) (text ">")
+   (tseq (text "<") (tag->tseq n a) (text ">")
          (text "</") (text n) (text ">"))
-   (show-empty-tag/basic n a)
+   (empty-elt->tseq/basic n a)
    disallow-narrow))
+
+|#
+
+(define (empty-elt->tseq n a)
+  (union
+   (tseq (text "<") (tag->tseq n a) (text ">")
+         (text "</") (text n) (text ">"))
+   (tseq (text "<") (tag->tseq n a) (text "/>"))
+   (lambda (w i k)
+     (if (>= (string-length i) (/ w 10)) 0 w))))
 
 ;; Xml -> DOC
 (define (showXML x)
@@ -47,8 +59,8 @@ Wadler's XML example for this purpose.
    x
    ((Elt n a c)
     (if (null? c)
-        (show-empty-tag n a)
-        (tseq (text "<") (showTag n a) (text ">")
+        (empty-elt->tseq n a)
+        (tseq (text "<") (tag->tseq n a) (text ">")
               (showFill showXML c)
               (text "</") (text n) (text ">"))))
    ((Txt s)
@@ -69,7 +81,7 @@ Wadler's XML example for this purpose.
     (tseq sp (text n) (text "=") (text (quoted v)))))
 
 ;; string, list[Attr] -> DOC
-(define (showTag n a)
+(define (tag->tseq n a)
   (tseq (text n) IN (map showAtt a) EX))
 
 ;;; 
@@ -132,11 +144,11 @@ Wadler's XML example for this purpose.
     (string-append s ".")))
 
 (define (random-name)
-  (random-string/readable (random/from-range 1 3) lower-lst))
+  (random-string/readable (random/from-range 1 1) lower-lst))
 
 (define (random-att)
   (Att (random-name)
-       (random-string/readable (random/from-range 1 10) lower-lst)))
+       (random-string/readable (random/from-range 2 2) lower-lst)))
 
 (define (random-txt)
   (Txt (random-sentence)))
@@ -193,7 +205,7 @@ Wadler's XML example for this purpose.
              (d (third d)))
          (for ((w w-lst))
               (test-doc w t d))
-         (pretty-println (tseq-to-sexp (tseq-optimize d)))
+         ;;(pretty-println (tseq-to-sexp (tseq-optimize d)))
          )))
       
 (main)
