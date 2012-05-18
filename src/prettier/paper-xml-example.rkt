@@ -6,6 +6,14 @@ Here we attempt to create an example for the paper demonstrating our
 strength factor and the "narrowing" of equivalent constructs. We adapt
 Wadler's XML example for this purpose.
 
+One thing to note here is that 'flatten' does away with any 'Union'
+within it, and the left choice is taken without any regard to the
+strength factor. (Naturally the same is true of 'group' and
+'group/fill' as they use 'flatten' internally.) This is clearly a
+problem in that it pretty much ruins the algebra. Unless we can
+account for the strength factor when flattening a Union. But this does
+seem unlikely.
+
 |#
 
 (require "hl.rkt")
@@ -13,6 +21,12 @@ Wadler's XML example for this purpose.
 (require "prim.rkt")
 (require "token.rkt")
 (require "util.rkt")
+
+(define-syntax-rule
+  (debug v)
+  (begin
+    (pretty-println `(v ,v))
+    v))
 
 (data Xml ((Elt s as xs) ;; string, list[Attr], list[Xml] -> Xml
            (Txt s))) ;; string -> Xml
@@ -50,15 +64,17 @@ Wadler's XML example for this purpose.
    (tseq (text "<") (tag->tseq n a) (text ">")
          (text "</") (text n) (text ">"))
    (tseq (text "<") (tag->tseq n a) (text "/>"))
-   (lambda (w i k)
-     (if (>= (string-length i) (/ w 10)) 0 w))))
+   (lambda (w i k) (debug k)
+     ;;(if (>= (string-length i) (/ w 10)) 0 w)
+     (if (> k (/ w 2)) 0 w)
+     )))
 
 ;; Xml -> DOC
 (define (showXML x)
   (match
    x
    ((Elt n a c)
-    (if (null? c)
+    (if (null? (debug c))
         (empty-elt->tseq n a)
         (tseq (text "<") (tag->tseq n a) (text ">")
               (showFill showXML c)
@@ -72,7 +88,10 @@ Wadler's XML example for this purpose.
 (define (showFill f xs)
   (if (null? xs)
       empty-tseq
-      (tseq IN br (sep-by/elems br (map f xs)) EX br)))
+      ;;(tseq IN br (sep-by/elems br (map f xs)) EX br)
+      ;;(tseq IN br (group (sep-by/elems sp (map f xs))) EX br)
+      (tseq IN br (group/fill (sep-by/elems tsp (map (compose together f) xs))) EX br)
+      ))
 
 ;; Attr -> DOC
 (define (showAtt x)
@@ -194,7 +213,7 @@ Wadler's XML example for this purpose.
          (pop (Nest (LvPop)))
          )
     (list
-     (list "random XML" '(70) (showXML (random-elt)))
+     (list "random XML" '(40) (showXML (random-elt)))
      ;;(list "XML document" '(80 25) (showXML xml-doc-1))
      )))
 
