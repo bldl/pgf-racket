@@ -16,15 +16,6 @@
 (define (spush st t)
   (cons t st))
 
-(define (spop st)
-  (values (cdr st) (car st)))
-
-(define-syntax-rule
-  (let-spop (h t st) e ...)
-  (let ((h (car st))
-        (t (cdr st)))
-    e ...))
-
 ;;; 
 ;;; indentation
 ;;; 
