@@ -10,6 +10,95 @@
     (op arg ... last)))
 
 ;;; 
+;;; grouping plugin mechanism
+;;; 
+
+(struct* Begin Token () #:transparent)
+(struct* End Token () #:transparent)
+(struct* Group Begin () #:transparent)
+(struct* Fill Begin () #:transparent)
+
+;; This is the interface to implement for each type of grouping.
+;; open?:: whether a token opens this grouping
+;; new:: creates fresh state for this grouping
+;; put:: buffers a token within region
+;; accept:: accepts a token from an inner grouping into this one
+;; end:: ends this grouping
+;; eof:: handles an EOF within this grouping
+(struct* Grouping (name open? new put accept end eof) #:transparent)
+
+(define (get-grouping g-lst t)
+  (or (findf (lambda (gr)
+               (let ((open? (Grouping-open? gr)))
+                 (open? t))) g-lst)
+      (error "get-grouping: not found" t)))
+
+;; Lazily turns group/End ranges into nested grouping constructions.
+;;
+;; Note that 's' must be complete, with matching numbers of opening
+;; and closing tokens. We are currently not providing a way to suspend
+;; and resume the streaming, and to put more data into the stream,
+;; which would be useful for incremental operation. We could quite
+;; easily refactor to allow for that, as we already internally
+;; maintain explicit grouping state.
+(define (group-stream s)
+  ;; type:: grouping type (Grouping)
+  ;; st:: grouping state (any)
+  (struct Grp (type st) #:transparent)
+
+  ;; grp:: current grouping (Grp or #f)
+  ;; outer:: outer state (St or #f)
+  (struct St (grp outer) #:transparent)
+
+  (let next ((st #f) (s s))
+    (lazy ;; even laziness
+     (let-values (((h t) (tseq-get s)))
+       ;;(writeln (list 'h h 't t 'st st))
+       (if (not h)
+           (let ((outer (and st (St-outer st))))
+             (when outer ;; xxx do not check before 'flush'
+               ((Grouping-eof (Grp-type outer)) (Grp-st outer)))
+             s)
+           (cond
+            ((Begin? h)
+             (let* ((g-type (get-grouping g-lst h))
+                    (g-st ((Grouping-new g-type)))
+                    (grp (Grp g-type g-st)))
+               (next (St grp st) t)))
+            ((End? h)
+             (begin
+               (unless st
+                 (error "unopened grouping" h))
+               (let* ((grp (St-grp st))
+                      (g-type (Grp-type grp))
+                      (end (Grouping-end g-type))
+                      (g-st (Grp-st grp))
+                      (g-tok (end g-st))
+                      (outer (St-outer st)))
+                 (if outer
+                     (let ((name (Grouping-name g-type))
+                           (st outer))
+                       (let* ((outer (St-outer st))
+                              (grp (St-grp st))
+                              (g-type (Grp-type grp))
+                              (g-st (Grp-st grp))
+                              (accept (Grouping-accept g-type))
+                              (n-g-st (accept g-st g-tok name))
+                              (n-grp (Grp g-type n-g-st))
+                              (n-st (St n-grp outer)))
+                         (next n-st t)))
+                     (tseq-cons g-tok (next #f t))))))
+            (else
+             (if st
+                 (let* ((grp (St-grp st))
+                        (g-type (Grp-type grp))
+                        (put (Grouping-put g-type))
+                        (g-st (put (Grp-st grp) h)))
+                   (next (St (Grp g-type g-st) (St-outer st)) t))
+                 (tseq-cons h (next st t))))
+            ))))))
+
+;;; 
 ;;; stack
 ;;; 
 

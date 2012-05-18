@@ -61,17 +61,10 @@ directly over a tseq.
 
 |#
 
-(data* Tseq (
-             ;; This object may contain state additional to the actual
-             ;; token stream. This is an abstract construction, and
-             ;; you must provide a 'get' operation. Any 'tseq-put'
-             ;; invocation will not add data under the control of an
-             ;; Ipairs; if you want such an operation, you must define
-             ;; it separately for your Ipairs instance. This is
-             ;; possible as the 'get' operation is known for a
-             ;; concrete instance.
-             (Ipairs st get)
-             ))
+;; The 'get' operation must be defined for all concrete tseq types.
+;; The 'st' field can be used for any bookkeeping. You may also create
+;; a derived type of Tseq if these fields are not enough.
+(struct* Tseq (st get))
 
 (define* empty-tseq '())
 
@@ -106,13 +99,13 @@ directly over a tseq.
   s-lst)
 
 (define-syntax-rule* (tseq-cons/lazy e s)
-  (cons (lazy e) (lazy s)))
+  (tseq-cons (lazy e) (lazy s)))
 
 (define-syntax-rule* (tseq-put/lazy s e)
-  (cons (lazy s) (lazy e)))
+  (tseq-put (lazy s) (lazy e)))
 
 (define-syntax-rule* (tseq-append/lazy s ...)
-  (list (lazy s) ...))
+  (tseq-append (lazy s) ...))
 
 ;; Must account for all tseq constructors. But only here, thanks to
 ;; our curious design.
@@ -129,7 +122,7 @@ directly over a tseq.
    ((Token? s) (values s empty-tseq))
    ((string? s) (values (Text s) empty-tseq))
    ((promise? s) (tseq-get (force s)))
-   ((Ipairs? s) ((Ipairs-get s) (Ipairs-st s)))
+   ((Tseq? s) ((Tseq-get s) (Tseq-st s)))
    (else (error "tseq-get: not a tseq" s))))
 
 (define* (tseq->list s)
@@ -151,7 +144,7 @@ directly over a tseq.
    ((Token? s) (list s))
    ((string? s) (list (Text s)))
    ((promise? s) (tseq-optimize (force s)))
-   ((Ipairs? s) (list s))
+   ((Tseq? s) (list s))
    (else (error "tseq-optimize: not a tseq" s))))
 
 (define* (tseq-foreach f s)
