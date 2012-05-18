@@ -14,6 +14,29 @@ problem in that it pretty much ruins the algebra. Unless we can
 account for the strength factor when flattening a Union. But this does
 seem unlikely.
 
+\lstset{language=XML}
+\begin{lstlisting}
+<k>
+    <q>
+        <m/>
+    </q>
+    <h></h>
+</k>
+\end{lstlisting}
+
+\lstset{language=Racket}
+\begin{lstlisting}
+;; n:: XML element name (string)
+;; a:: attributes (list of Attr)
+(define (empty-elt->tseq n a)
+  (union
+   (tseq (text "<") (tag->tseq n a) (text ">")
+         (text "</") (text n) (text ">"))
+   (tseq (text "<") (tag->tseq n a) (text "/>"))
+   (lambda (w i k)
+     (if (>= (string-length i) (/ w 10)) 0 w))))
+\end{lstlisting}
+
 |#
 
 (require "hl.rkt")
