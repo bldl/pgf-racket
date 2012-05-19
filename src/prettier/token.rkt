@@ -159,6 +159,13 @@ directly over a tseq.
       (if (not h) r
           (loop (tseq-put r (f h)) t)))))
 
+(define* (tseq-take n s)
+  (let loop ((r '()) (n n) (s s))
+    (if (= n 0) (reverse r)
+        (let-values (((h t) (tseq-get s)))
+          (if (not h) (reverse r)
+              (loop (tseq-put (cons h r) (- n 1) t)))))))
+
 (define* (in-tseq s)
   (make-do-sequence
    (thunk
