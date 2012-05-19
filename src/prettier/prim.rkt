@@ -196,11 +196,11 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
           st
           (cond
            ((Begin? d)
-            (grp-begin st d))
+            (grp-begin (struct-copy FmtSt st (inDoc inDoc)) d))
            ((End? d)
-            (grp-end st))
+            (grp-end (struct-copy FmtSt st (inDoc inDoc))))
            ((FmtSt-grp st)
-            (grp-put st d))
+            (grp-put (struct-copy FmtSt st (inDoc inDoc)) d))
            (else
             (let ((k (FmtSt-k st))
                   (w (FmtSt-w st))
@@ -322,11 +322,15 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 (define* (pgf-print/st/flush st (out (current-output-port)))
   (pgf-print/st/buffered (flush (pgf-print/st/safe st out)) out))
 
-(define* (pgf-print w ts (out (current-output-port)))
-  (pgf-print/st/flush (new-FmtSt w ts) out))
+(define* (pgf-print w ts
+                    (out (current-output-port))
+                    #:groupings (groups '()))
+  (pgf-print/st/flush (new-FmtSt w ts #:groupings groups) out))
 
-(define* (pgf-println w ts (out (current-output-port)))
-  (pgf-print w ts out) (newline out))
+(define* (pgf-println w ts
+                      (out (current-output-port))
+                      #:groupings (groups '()))
+  (pgf-print w ts out #:groupings groups) (newline out))
 
 ;;; 
 ;;; grouping construct

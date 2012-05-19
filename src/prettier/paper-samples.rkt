@@ -13,7 +13,7 @@
 (define (test-doc w t d)
   (printfln "// ~a (w=~a)" t w)
   (displayln (width-divider w))
-  (pgf-println w d)
+  (pgf-println w d #:groupings default-groupings)
   (displayln "// ----------"))
 
 (define d-lst
@@ -37,8 +37,9 @@
        (let ((t (first d))
              (w-lst (second d))
              (d (third d)))
-         (pretty-println (tseq-to-sexp (tseq-optimize d)))
          (for ((w w-lst))
-              (test-doc w t d)))))
+              (test-doc w t d))
+         (pretty-println (tseq-to-sexp (tseq-optimize d)))
+         )))
       
 (main)

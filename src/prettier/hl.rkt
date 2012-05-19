@@ -109,7 +109,7 @@
         (FSt empty-tseq (cons s lst))
         (FSt (tseq-put s e) lst))))
 
-(define g-lst
+(define* default-groupings
   (list
    (Grouping
     'group
@@ -141,8 +141,11 @@
 (define* fl (Fill))
 (define* end (End))
 
-;; xxx no longer needed
-;;(define* (tseq/gr . lst) (group-stream lst))
+;; for backward compatibility
+(define* tseq/gr tseq)
+
+;; for backward compatibility
+(define* group-stream identity)
 
 ;;; 
 ;;; filling grouping
