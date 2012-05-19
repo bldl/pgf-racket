@@ -109,11 +109,9 @@
         (FSt empty-tseq (cons s lst))
         (FSt (tseq-put s e) lst))))
 
-(define* default-groupings
-  (list
+(define* group-grouping
    (Grouping
     'group
-    Group? ;; open?
     (lambda () (GSt empty-tseq)) ;; new
     g-put ;; put
     g-put ;; accept
@@ -121,10 +119,11 @@
       (let ((ge (group (GSt-buf st))))
         ge))
     (lambda (st) (error "unclosed Group" (GSt-buf st))) ;; eof
-    )
+    ))
+
+(define* fill-grouping
    (Grouping
     'fill
-    Fill? ;; open?
     (lambda () (FSt empty-tseq '())) ;; new
     f-put ;; put
     f-put ;; accept
@@ -134,11 +133,10 @@
     (lambda (st) ;; eof
       (error "unclosed Fill"
              (cons (reverse (FSt-lst st)) (FSt-s st))))
-    )
-   ))
+    ))
 
-(define* gr (Group))
-(define* fl (Fill))
+(define* gr (Begin group-grouping))
+(define* fl (Begin fill-grouping))
 (define* end (End))
 
 ;; for backward compatibility

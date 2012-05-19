@@ -13,7 +13,7 @@
 (define (test-doc w t d)
   (printfln "// ~a (w=~a)" t w)
   (displayln (width-divider w))
-  (pgf-println w d #:groupings default-groupings)
+  (pgf-println w d)
   (displayln "// ----------"))
 
 (define d-lst

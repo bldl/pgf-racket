@@ -18,7 +18,6 @@
                 lvStack ;; nesting stack (stack of string)
                 bt ;; backtracking state (if any; can be chained)
                 grp ;; grouping state (GrpSt or #f)
-                groups ;; grouping list (list of Grouping)
                 ) #:transparent)
 
 ;;; 
@@ -38,26 +37,16 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 
 |#
 
-(struct* Begin Token () #:transparent)
+(struct* Begin Token (grouping) #:transparent)
 (struct* End Token () #:transparent)
-(struct* Group Begin () #:transparent)
-(struct* Fill Begin () #:transparent)
 
 ;; This is the interface to implement for each type of grouping.
-;; open?:: whether a token opens this grouping
 ;; new:: creates fresh state for this grouping
 ;; put:: buffers a token within region
 ;; accept:: accepts a token from an inner grouping into this one
 ;; end:: ends this grouping
 ;; eof:: handles an EOF within this grouping
-(struct* Grouping (name open? new put accept end eof) #:transparent)
-
-(define (get-grouping st t)
-  (or (findf (lambda (gr)
-               (let ((open? (Grouping-open? gr)))
-                 (open? t)))
-             (FmtSt-groups st))
-      (error "get-grouping: not found" t)))
+(struct* Grouping (name new put accept end eof) #:transparent)
 
 ;; type:: grouping type (Grouping)
 ;; st:: grouping state (any)
@@ -77,7 +66,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 ;; Returns:: formatting state (FmtSt)
 (define (grp-begin st h)
   (let* ((outer (FmtSt-grp st))
-         (g-type (get-grouping st h))
+         (g-type (Begin-grouping h))
          (g-st ((Grouping-new g-type)))
          (inner (GrpSt g-type g-st outer)))
     (struct-copy FmtSt st (grp inner))))
@@ -178,9 +167,8 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 
 ;; w:: page width (integer)
 ;; inDoc:: unread input (tseq of Token, optional)
-(define* (new-FmtSt w (inDoc empty-tseq)
-                    #:groupings (groups '()))
-  (FmtSt w w empty-tseq inDoc 0 '("") #f #f groups))
+(define* (new-FmtSt w (inDoc empty-tseq))
+  (FmtSt w w empty-tseq inDoc 0 '("") #f #f))
 
 ;; Flushes buffered documents, committing decisions made thus far.
 ;; After this it is safe to consume all of 'outDoc'. Note that this
@@ -322,15 +310,11 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 (define* (pgf-print/st/flush st (out (current-output-port)))
   (pgf-print/st/buffered (flush (pgf-print/st/safe st out)) out))
 
-(define* (pgf-print w ts
-                    (out (current-output-port))
-                    #:groupings (groups '()))
-  (pgf-print/st/flush (new-FmtSt w ts #:groupings groups) out))
+(define* (pgf-print w ts (out (current-output-port)))
+  (pgf-print/st/flush (new-FmtSt w ts) out))
 
-(define* (pgf-println w ts
-                      (out (current-output-port))
-                      #:groupings (groups '()))
-  (pgf-print w ts out #:groupings groups) (newline out))
+(define* (pgf-println w ts (out (current-output-port)))
+  (pgf-print w ts out) (newline out))
 
 ;;; 
 ;;; grouping construct
