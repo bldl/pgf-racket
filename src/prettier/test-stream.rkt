@@ -17,11 +17,12 @@
 
 (define w-lst '(5 10 15 25 35 55 75))
 
-(define (mk-text n) ;; integer -> tseq
-  (map (compose Text number->string) (for/list ((i n)) i)))
+(define (mk-text n #:base (base "")) ;; integer -> tseq
+  (map (compose Text (fix string-append base) number->string)
+       (for/list ((i n)) i)))
 
-(define (mk-text/lines n) ;; integer -> tseq
-  (add-between (mk-text n) br))
+(define (mk-text/lines n #:base (base "")) ;; integer -> tseq
+  (add-between (mk-text n #:base base) br))
 
 (define d-lst
   (let* (
@@ -41,6 +42,8 @@
               (Text ")")))
          )
     (list
+     ;;(cons "unclosed stream group (XML style)" (tseq group/ (mk-text/lines 6 #:base "word")))
+     (cons "stream group (XML style)" (tseq group/ (mk-text/lines 6 #:base "word") /group))
      (cons "stream group and fill (tseq/gr)" (tseq gr fl (mk-text/lines 10) end br fl (mk-text/lines 20) end end))
      (cons "nested stream fills (tseq/gr)" (tseq fl "a" br fl fl "b" br fl (mk-text/lines 20) end br "c" end br "d" end end))
      (cons "stream fill (tseq/gr)" (tseq/gr fl (mk-text/lines 20) end))

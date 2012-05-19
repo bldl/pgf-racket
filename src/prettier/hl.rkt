@@ -108,9 +108,9 @@
     'group
     (thunk empty-tseq) ;; new
     tseq-put ;; put
-    (lambda (st e n) (tseq-put st e)) ;; accept
+    #f ;; accept (default)
     group ;; end
-    (lambda (st) (error "unclosed Group" st)) ;; eof
+    #f ;; eof (default)
     ))
 
 (define* fill-grouping
@@ -122,7 +122,7 @@
     (lambda (st) ;; end
       (let ((lst (cons (FSt-s st) (FSt-lst st))))
         (fill/elems (reverse lst))))
-    (lambda (st) ;; eof
+    (lambda (st name) ;; eof
       (error "unclosed Fill"
              (cons (reverse (FSt-lst st)) (FSt-s st))))
     ))
@@ -130,6 +130,9 @@
 (define* gr (Begin group-grouping))
 (define* fl (Begin fill-grouping))
 (define* end (End))
+
+(define* group/ (Begin group-grouping))
+(define* /group (End))
 
 ;; for backward compatibility
 (define* tseq/gr tseq)

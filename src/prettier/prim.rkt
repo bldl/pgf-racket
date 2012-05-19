@@ -45,7 +45,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 ;; put:: buffers a token within region
 ;; accept:: accepts a token from an inner grouping into this one
 ;; end:: ends this grouping
-;; eof:: handles an EOF within this grouping
+;; eof:: handles an EOF within this grouping (#f for default)
 (struct* Grouping (name new put accept end eof) #:transparent)
 
 ;; type:: grouping type (Grouping)
@@ -53,12 +53,19 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 ;; outer:: outer grouping state (GrpSt or #f)
 (struct GrpSt (type st outer) #:transparent)
 
+(define (eof/default st name)
+  (error (format "unclosed '~s' grouping" name) st))
+
 ;; st:: formatting state (FmtSt)
 ;; Returns:: formatting state (FmtSt)
 (define (grp-flush st)
   (let ((grp (FmtSt-grp st)))
     (when grp
-      ((Grouping-eof (GrpSt-type grp)) (GrpSt-st grp))))
+      (let* ((g-type (GrpSt-type grp))
+             (g-st (GrpSt-st grp))
+             (name (Grouping-name g-type))
+             (eof-f (or (Grouping-eof g-type) eof/default)))
+        (eof-f g-st name))))
   st)
 
 ;; st:: formatting state (FmtSt)
@@ -90,7 +97,9 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
                 (grp outer))
             (let* ((g-type (GrpSt-type grp))
                    (g-st (GrpSt-st grp))
-                   (accept (Grouping-accept g-type))
+                   (accept (or (Grouping-accept g-type)
+                               (lambda (st e n)
+                                 ((Grouping-put g-type) st e))))
                    (n-g-st (accept g-st g-tok name))
                    (n-grp (struct-copy GrpSt grp (st n-g-st))))
               (struct-copy FmtSt st (grp n-grp))))
