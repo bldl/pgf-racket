@@ -92,15 +92,9 @@
 ;;; grouping input streams
 ;;; 
 
-;; buf:: buffered tokens (tseq)
-(struct GSt (buf) #:transparent)
-
 ;; s:: stream for current "word" (tseq or #f)
 ;; lst:: lst of "words" (list of tseq)
 (struct FSt (s lst) #:transparent)
-
-(define (g-put st e (name #f))
-  (GSt (tseq-put (GSt-buf st) e)))
 
 (define (f-put st e (name #f))
   (let ((s (FSt-s st))
@@ -112,13 +106,11 @@
 (define* group-grouping
    (Grouping
     'group
-    (lambda () (GSt empty-tseq)) ;; new
-    g-put ;; put
-    g-put ;; accept
-    (lambda (st) ;; end
-      (let ((ge (group (GSt-buf st))))
-        ge))
-    (lambda (st) (error "unclosed Group" (GSt-buf st))) ;; eof
+    (thunk empty-tseq) ;; new
+    tseq-put ;; put
+    (lambda (st e n) (tseq-put st e)) ;; accept
+    group ;; end
+    (lambda (st) (error "unclosed Group" st)) ;; eof
     ))
 
 (define* fill-grouping
