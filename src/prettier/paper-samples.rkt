@@ -34,7 +34,7 @@
      (list "shorter, with same effect (thanks to preceding br)" '(20 40 30 15 10 7) (tseq "(" align/ (group/cat "3 +" sp "4 +" br (group/cat "(5 +" sp "6 +" sp "7) +") sp "8" /align ")")))
      (list "comparison 1 (group, with preceding br)" '(20 40 30 15 10 7) (tseq (group/cat (group/cat "(" align/ "1 +" sp "2" /align ") *") br (group/cat "(" align/ "3 +" sp "4 +" br (group/cat "(" align/ "5 +" sp "6 +" sp "7" /align ") +") sp "8" /align ")"))))
      (list "comparison 1 (tran)" '(20 40 30 15 10 7) (tran (together (together "(" align/ "1 +" sp "2" /align ") *") tsp (together "(" align/ "3 +" sp "4 +" tsp (together "(" align/ "5 +" sp "6 +" sp "7" /align ") +") tsp "8" /align ")"))))
-     ;;(list "comparison 1 (tran/ and /tran)" '(20 40 30 15 10 7) (tseq tran/ together/ together/ "(" align/ "1 +" sp "2" /align ") *" /together tsp together/ "(" align/ "3 +" sp "4 +" tsp together/ "(" align/ "5 +" sp "6 +" sp "7" /align ") +" /together tsp "8" /align ")" /together /together /tran))
+     (list "comparison 1 (tran/ and /tran)" '(20 40 30 15 10 7) (tseq tran/ together/ together/ "(" align/ "1 +" sp "2" /align ") *" /together tsp together/ "(" align/ "3 +" sp "4 +" tsp together/ "(" align/ "5 +" sp "6 +" sp "7" /align ") +" /together tsp "8" /align ")" /together /together /tran))
      ;;(list "comparison 1 (not working tran)" '(20 40 30 15 10 7) (tran (tseq together/ together/ "(" align/ "1 +" sp "2" /align ") *" /together tsp together/ "(" align/ "3 +" sp "4 +" tsp together/ "(" align/ "5 +" sp "6 +" sp "7" /align ") +" /together tsp "8" /align ")" /together /together))) ;; this does not work now that groupings are not processed before layout
      )))
 

@@ -106,15 +106,24 @@
         (FSt empty-tseq (cons s lst))
         (FSt (tseq-put s e) lst))))
 
-(define (make-grouping name f)
-   (Grouping
-    name
-    (thunk empty-tseq) ;; new
-    tseq-put ;; put
-    #f ;; accept (default)
-    f ;; end
-    #f ;; eof (default)
-    ))
+(define (eof/default st name)
+  (error (format "unclosed '~s' grouping" name) st))
+
+(define (make-grouping name
+                       #:new new
+                       #:put put
+                       #:accept (accept
+                                 (lambda (st e n)
+                                   (put st e)))
+                       #:end end
+                       #:eof (eof eof/default))
+  (Grouping name new put accept end eof))
+
+(define (make-grouping/tseq-call name f)
+  (make-grouping name
+                 #:new (thunk empty-tseq)
+                 #:put tseq-put
+                 #:end f))
 
 (define* group-grouping
    (Grouping
@@ -220,10 +229,10 @@
 (define* group/fill tran)
 
 (define* together-grouping
-  (make-grouping 'together Together))
+  (make-grouping/tseq-call 'together Together))
 
 (define* tran-grouping
-  (make-grouping 'tran tran))
+  (make-grouping/tseq-call 'tran tran))
 
 (define* together/ (Begin together-grouping))
 (define* /together (End together-grouping))

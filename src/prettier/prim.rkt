@@ -42,9 +42,6 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 ;; outer:: outer grouping state (GrpSt or #f)
 (struct GrpSt (type st outer) #:transparent)
 
-(define (eof/default st name)
-  (error (format "unclosed '~s' grouping" name) st))
-
 ;; st:: formatting state (FmtSt)
 ;; Returns:: formatting state (FmtSt)
 (define (grp-flush st)
@@ -53,7 +50,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
       (let* ((g-type (GrpSt-type grp))
              (g-st (GrpSt-st grp))
              (name (Grouping-name g-type))
-             (eof-f (or (Grouping-eof g-type) eof/default)))
+             (eof-f (Grouping-eof g-type)))
         (eof-f g-st name))))
   st)
 
@@ -86,9 +83,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
                 (grp outer))
             (let* ((g-type (GrpSt-type grp))
                    (g-st (GrpSt-st grp))
-                   (accept (or (Grouping-accept g-type)
-                               (lambda (st e n)
-                                 ((Grouping-put g-type) st e))))
+                   (accept (Grouping-accept g-type))
                    (n-g-st (accept g-st g-tok name))
                    (n-grp (struct-copy GrpSt grp (st n-g-st))))
               (struct-copy FmtSt st (grp n-grp))))
