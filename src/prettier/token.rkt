@@ -14,6 +14,14 @@ Tokens and token sequences/streams.
            (LvRel n) ;; integer -> Lv
            (LvPop))) ;; -> Lv
 
+;; This is the interface to implement for each type of grouping.
+;; new:: creates fresh state for this grouping
+;; put:: buffers a token within region
+;; accept:: accepts a token from an inner grouping into this one
+;; end:: ends this grouping
+;; eof:: handles an EOF within this grouping (#f for default)
+(struct* Grouping (name new put accept end eof) #:transparent)
+
 ;; FmtEngine supports Nest, Text, Line, Union, and Width.
 ;;
 ;; Spacer supports Space, Anno, and /Anno tokens, dropping them or
@@ -30,6 +38,9 @@ Tokens and token sequences/streams.
                      (Anno lst) ;; list of symbol -> Token
                      (/Anno lst) ;; list of symbol -> Token
                      ))
+
+(struct* Begin Token (grouping)) ;; Grouping -> Token
+(struct* End Token (grouping)) ;; Grouping or #f -> Token
 
 #|
 
@@ -144,6 +155,7 @@ directly over a tseq.
    ((Token? s) (list s))
    ((string? s) (list (Text s)))
    ((promise? s) (tseq-optimize (force s)))
+   ((Together? s) (Together (tseq-optimize (Together-m s))))
    ((Tseq? s) (list s))
    (else (error "tseq-optimize: not a tseq" s))))
 

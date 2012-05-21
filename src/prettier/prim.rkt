@@ -37,17 +37,6 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 
 |#
 
-(struct* Begin Token (grouping) #:transparent)
-(struct* End Token () #:transparent)
-
-;; This is the interface to implement for each type of grouping.
-;; new:: creates fresh state for this grouping
-;; put:: buffers a token within region
-;; accept:: accepts a token from an inner grouping into this one
-;; end:: ends this grouping
-;; eof:: handles an EOF within this grouping (#f for default)
-(struct* Grouping (name new put accept end eof) #:transparent)
-
 ;; type:: grouping type (Grouping)
 ;; st:: grouping state (any)
 ;; outer:: outer grouping state (GrpSt or #f)

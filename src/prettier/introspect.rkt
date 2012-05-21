@@ -28,6 +28,13 @@
                    ((LvRel? lv) `(nest/rel ,(LvRel-n lv)))
                    ((LvPop? lv) '(/nest))
                    (else (error "tseq-to-sexp: unexpected level" lv)))))
+      ((Begin? t) (let* ((g-type (Begin-grouping t))
+                         (name (Grouping-name g-type)))
+                    `(begin ,name)))
+      ((End? t) (let ((g-type (End-grouping t)))
+                  (if g-type `(end ,(Grouping-name g-type)) '(end))))
+      ((SpaceT? t) `(space/t ,(SpaceT-s t)))
+      ((Together? t) `(together ,(tseq-to-sexp (Together-m t))))
       (else (error "tseq-to-sexp: unexpected token" t))))
    (tseq->list (tseq-optimize s))))
 

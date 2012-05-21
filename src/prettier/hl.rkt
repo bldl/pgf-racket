@@ -38,6 +38,9 @@
 
 (define* dedent (Nest (LvPop)))
 
+(define* align/ align)
+(define* /align dedent)
+
 (define* (indent n) (Nest (LvInc n)))
 
 (define* (exdent n) (Nest (LvInc (- n))))
@@ -103,6 +106,16 @@
         (FSt empty-tseq (cons s lst))
         (FSt (tseq-put s e) lst))))
 
+(define (make-grouping name f)
+   (Grouping
+    name
+    (thunk empty-tseq) ;; new
+    tseq-put ;; put
+    #f ;; accept (default)
+    f ;; end
+    #f ;; eof (default)
+    ))
+
 (define* group-grouping
    (Grouping
     'group
@@ -127,12 +140,15 @@
              (cons (reverse (FSt-lst st)) (FSt-s st))))
     ))
 
+(define* group/ (Begin group-grouping))
+(define* /group (End group-grouping))
+(define* fill/ (Begin fill-grouping))
+(define* /fill (End fill-grouping))
+
+;; for backward compatibility
 (define* gr (Begin group-grouping))
 (define* fl (Begin fill-grouping))
-(define* end (End))
-
-(define* group/ (Begin group-grouping))
-(define* /group (End))
+(define* end (End #f))
 
 ;; for backward compatibility
 (define* tseq/gr tseq)
@@ -144,16 +160,16 @@
 ;;; filling grouping
 ;;; 
 
+;; This kind of space appears as Line() in some choice contexts, and
+;; as Text(s) in others. In effect it's less eager to break than a
+;; Line().
+(define* tsp (SpaceT " "))
+
 ;; The point of this construction is that the tseq abstraction will
 ;; not go inside it. Rather, it will return the whole thing as a
 ;; single token.
 (define* (together . xs)
   (Together xs))
-
-;; This kind of space appears as Line() in some choice contexts, and
-;; as Text(s) in others. In effect it's less eager to break than a
-;; Line().
-(define* tsp (SpaceT " "))
 
 ;; This function makes it easier to build relatively complicated
 ;; Union-based constructions. It recognizes SpaceT and Together tokens
@@ -168,9 +184,9 @@
 ;; For example, one may build a grouping such that either (1) the
 ;; first element is flattened and the next one follows on the same
 ;; line (2) the first element is flattened, with a line break
-;; following, (3) group/fill is called to handle the first element,
+;; following, (3) tran is called to handle the first element,
 ;; and a line break follows.
-(define* (group/fill x)
+(define* (tran x)
   ;; s:: input (tseq)
   ;; break?:: whether breaking first token is allowed (boolean)
   ;; br?:: whether first SpaceT token must be output as a Line (boolean)
@@ -191,12 +207,26 @@
                (let ((m (Together-m e)))
                  (cond
                   ((not break?) (tseq-append (flatten m) (g t #t)))
-                  ((not next?) (union (flatten m) (group/fill m)))
+                  ((not next?) (union (flatten m) (tran m)))
                   (else (union (tseq-append (flatten m) (g t #f))
                                (tseq-append (union (flatten m)
-                                                   (group/fill m))
+                                                   (tran m))
                                             (g t #t #:tsp-br? #t)))))))
               (else
-               (tseq-cons e (group/fill t)))))))))
+               (tseq-cons e (tran t)))))))))
   (g x #t))
 
+;; for backward compatibility
+(define* group/fill tran)
+
+(define* together-grouping
+  (make-grouping 'together Together))
+
+(define* tran-grouping
+  (make-grouping 'tran tran))
+
+(define* together/ (Begin together-grouping))
+(define* /together (End together-grouping))
+
+(define* tran/ (Begin tran-grouping))
+(define* /tran (End tran-grouping))
