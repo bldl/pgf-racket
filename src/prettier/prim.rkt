@@ -77,7 +77,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
            (end-f (Grouping-end g-type))
            (g-tok (end-f g-st)))
       (if outer
-          ;; Have outer grouping accept the synthesized token that is
+          ;; Have outer grouping accept the synthesized tseq that is
           ;; the result of the inner grouping.
           (let ((name (Grouping-name g-type))
                 (grp outer))
@@ -87,7 +87,9 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
                    (n-g-st (accept g-st g-tok name))
                    (n-grp (struct-copy GrpSt grp (st n-g-st))))
               (struct-copy FmtSt st (grp n-grp))))
-          ;; Unget synthesized token into the input stream.
+          ;; Unget synthesized tseq into the input stream. Naturally
+          ;; any groupings in the cons'ed tseq will also get
+          ;; processed.
           (struct-copy FmtSt st
                        (grp #f)
                        (inDoc (tseq-cons g-tok (FmtSt-inDoc st))))))))

@@ -109,7 +109,7 @@
 (define (eof/default st name)
   (error (format "unclosed '~s' grouping" name) st))
 
-(define (make-grouping name
+(define* (make-grouping name
                        #:new new
                        #:put put
                        #:accept (accept
@@ -119,21 +119,14 @@
                        #:eof (eof eof/default))
   (Grouping name new put accept end eof))
 
-(define (make-grouping/tseq-call name f)
+(define* (make-grouping/tseq-call name f)
   (make-grouping name
                  #:new (thunk empty-tseq)
                  #:put tseq-put
                  #:end f))
 
 (define* group-grouping
-   (Grouping
-    'group
-    (thunk empty-tseq) ;; new
-    tseq-put ;; put
-    #f ;; accept (default)
-    group ;; end
-    #f ;; eof (default)
-    ))
+  (make-grouping/tseq-call 'group group))
 
 (define* fill-grouping
    (Grouping
