@@ -32,7 +32,8 @@ Tokens and token sequences/streams.
                      (Line) ;; -> Token
                      (Union l r sh) ;; stream, stream, function -> Token
                      (Width w) ;; rational -> Token
-                     (Space s sh) ;; string, rational -> Token
+                     (UserToken f) ;; function -> Token
+                     ;;(Space s sh) ;; string, rational -> Token
                      (Together m) ;; stream -> Token
                      (SpaceT s) ;; string -> Token
                      (Anno lst) ;; list of symbol -> Token

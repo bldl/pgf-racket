@@ -231,6 +231,13 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
                 (struct-copy FmtSt st
                              (w (Width-w d))
                              (inDoc inDoc)))
+               ((UserToken? d)
+                ;; Our current design lends itself to creating a
+                ;; simple but fairly powerful extension mechanism like
+                ;; this. Just use a UserToken or a subtype to define
+                ;; how the state should change.
+                ((UserToken-f d) (struct-copy FmtSt st
+                                              (inDoc inDoc)) d))
                ((Together? d)
                 (struct-copy FmtSt st
                              (inDoc (tseq-append (Together-m d) inDoc))))

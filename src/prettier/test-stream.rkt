@@ -31,6 +31,23 @@
 (define foobar/ (Begin foobar-grouping))
 (define /foobar (End foobar-grouping))
 
+(define (my-together . x)
+  (UserToken
+   (lambda (st tok)
+     (struct-copy FmtSt st
+                  (inDoc (tseq-append x (FmtSt-inDoc st)))))))
+
+(struct Space UserToken (s) #:transparent)
+
+(define (my-space s)
+  (Space
+   (lambda (st tok)
+     (struct-copy FmtSt st
+                  (inDoc (tseq-cons (union (Space-s tok) br) (FmtSt-inDoc st)))))
+   s))
+
+(define msp (my-space " "))
+
 (define d-lst
   (let* (
          (d1 (tseq (Text "first") (Line)
@@ -49,6 +66,7 @@
               (Text ")")))
          )
     (list
+     (cons "MyTogether" (tseq "111" msp (my-together "222" msp "333") msp "444"))
      ;;(cons "unclosed stream group (XML style)" (tseq group/ (mk-text/lines 6 #:base "word")))
      (cons "foobar grouping" (tseq "begin" sp foobar/ "anything" br "here" sp "will" br "vanish" /foobar sp "end"))
      (cons "stream group (XML style)" (tseq group/ (mk-text/lines 6 #:base "word") /group))
