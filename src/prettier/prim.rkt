@@ -172,7 +172,72 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 (define (flush st) ;; FmtSt -> FmtSt
   (struct-copy FmtSt (grp-flush st) (bt #f)))
 
-(define (process-token st) ;; FmtSt -> FmtSt
+;; Note that this function does not support groupings.
+;; st:: current state (FmtSt)
+;; d:: token to process (Token)
+;; inDoc:: input stream after token (tseq)
+;; Returns:: new state (FmtSt)
+(define (process-token st d inDoc)
+  (let ((k (FmtSt-k st))
+        (w (FmtSt-w st))
+        (outDoc (FmtSt-outDoc st))
+        (i (car (FmtSt-lvStack st))))
+    (cond
+     ((Nest? d)
+      (struct-copy FmtSt st (inDoc inDoc)
+                   (lvStack
+                    (margin (FmtSt-lvStack st) k (Nest-lv d)))))
+     ((Text? d)
+      ;; Here we must check whether the text still fits. If it
+      ;; doesn't, we'll only continue if we don't have a way back.
+      (let ((s (Text-s d)))
+        (let ((k (+ k (string-length s)))
+              (bt (FmtSt-bt st)))
+          (if (and bt (> k w))
+              bt ;; backtrack
+              (struct-copy FmtSt st (inDoc inDoc)
+                           (k k) (outDoc (tseq-put outDoc d)))))))
+     ((Line? d)
+      ;; A break always fits, and then we're committed, and
+      ;; won't backtrack from here.
+      (struct-copy FmtSt st (inDoc inDoc)
+                   (k (string-length i))
+                   (bt #f)
+                   (outDoc
+                    (tseq-append outDoc
+                                 (Text "\n")
+                                 (Text i)))))
+     ((Union? d)
+      ;; Pick left option, leave right for backtracking.
+      (let ((l (Union-l d))
+            (r (Union-r d))
+            (sh (Union-sh d)))
+        (let ((r-st
+               (struct-copy FmtSt st
+                            (inDoc (tseq-append r inDoc)))))
+          (struct-copy FmtSt st
+                       (w (sh (FmtSt-cw st) i k))
+                       (inDoc
+                        (tseq-append l (Width w) inDoc))
+                       (bt r-st)))))
+     ((Width? d)
+      (struct-copy FmtSt st
+                   (w (Width-w d))
+                   (inDoc inDoc)))
+     ((UserToken? d)
+      ;; Our current design lends itself to creating a
+      ;; simple but fairly powerful extension mechanism like
+      ;; this. Just use a UserToken or a subtype to define
+      ;; how the state should change.
+      ((UserToken-f d) (struct-copy FmtSt st
+                                    (inDoc inDoc)) d))
+     ((Together? d)
+      (struct-copy FmtSt st
+                   (inDoc (tseq-append (Together-m d) inDoc))))
+     (else (error "process-token: unexpected" d))
+     )))
+
+(define (process-step st) ;; FmtSt -> FmtSt
   (let ((inDoc (FmtSt-inDoc st)))
     (let-values (((d inDoc) (tseq-get inDoc)))
       (if (not d)
@@ -185,64 +250,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
            ((FmtSt-grp st)
             (grp-put (struct-copy FmtSt st (inDoc inDoc)) d))
            (else
-            (let ((k (FmtSt-k st))
-                  (w (FmtSt-w st))
-                  (outDoc (FmtSt-outDoc st))
-                  (i (car (FmtSt-lvStack st))))
-              (cond
-               ((Nest? d)
-                (struct-copy FmtSt st (inDoc inDoc)
-                             (lvStack
-                              (margin (FmtSt-lvStack st) k (Nest-lv d)))))
-               ((Text? d)
-                ;; Here we must check whether the text still fits. If it
-                ;; doesn't, we'll only continue if we don't have a way back.
-                (let ((s (Text-s d)))
-                  (let ((k (+ k (string-length s)))
-                        (bt (FmtSt-bt st)))
-                    (if (and bt (> k w))
-                        bt ;; backtrack
-                        (struct-copy FmtSt st (inDoc inDoc)
-                                     (k k) (outDoc (tseq-put outDoc d)))))))
-               ((Line? d)
-                ;; A break always fits, and then we're committed, and
-                ;; won't backtrack from here.
-                (struct-copy FmtSt st (inDoc inDoc)
-                             (k (string-length i))
-                             (bt #f)
-                             (outDoc
-                              (tseq-append outDoc
-                                           (Text "\n")
-                                           (Text i)))))
-               ((Union? d)
-                ;; Pick left option, leave right for backtracking.
-                (let ((l (Union-l d))
-                      (r (Union-r d))
-                      (sh (Union-sh d)))
-                  (let ((r-st
-                         (struct-copy FmtSt st
-                                      (inDoc (tseq-append r inDoc)))))
-                    (struct-copy FmtSt st
-                                 (w (sh (FmtSt-cw st) i k))
-                                 (inDoc
-                                  (tseq-append l (Width w) inDoc))
-                                 (bt r-st)))))
-               ((Width? d)
-                (struct-copy FmtSt st
-                             (w (Width-w d))
-                             (inDoc inDoc)))
-               ((UserToken? d)
-                ;; Our current design lends itself to creating a
-                ;; simple but fairly powerful extension mechanism like
-                ;; this. Just use a UserToken or a subtype to define
-                ;; how the state should change.
-                ((UserToken-f d) (struct-copy FmtSt st
-                                              (inDoc inDoc)) d))
-               ((Together? d)
-                (struct-copy FmtSt st
-                             (inDoc (tseq-append (Together-m d) inDoc))))
-               (else (error "process-token: unexpected" d))
-               ))))))))
+            (process-token st d inDoc)))))))
 
 (define (FmtSt-eof? st) ;; FmtSt -> boolean
   (tseq-empty? (FmtSt-inDoc st)))
@@ -256,11 +264,11 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
   (FmtSt-write st (tseq t)))
 
 ;; Processes tokens for as long as there is input.
-(define (process-tokens st) ;; FmtSt -> FmtSt
+(define (process-input st) ;; FmtSt -> FmtSt
   (let loop ((st st))
     (if (FmtSt-eof? st)
         st
-        (loop (process-token st)))))
+        (loop (process-step st)))))
 
 ;;; 
 ;;; text output
@@ -285,7 +293,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 (define* (pgf-string/st st)
   (pgf-string/tseq
    (FmtSt-outDoc
-    (process-tokens st))))
+    (process-input st))))
 
 ;; w:: page width
 ;; ts:: formatted document
@@ -306,7 +314,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
   (let loop ()
     (unless (FmtSt-bt st)
       (set! st (pgf-print/st/buffered st out)))
-    (set! st (process-token st))
+    (set! st (process-step st))
     (if (FmtSt-eof? st) st (loop))))
 
 (define* (pgf-print/st/flush st (out (current-output-port)))
