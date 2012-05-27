@@ -13,6 +13,7 @@
                 cw ;; specified page width (integer, constant)
                 w ;; page width (rational)
                 outDoc ;; formatted document (tseq of Token)
+                midDoc ;; read but unformatted tokens (tseq of Token)
                 inDoc ;; unread input (tseq of Token)
                 k ;; current column (integer)
                 lvStack ;; nesting stack (stack of string)
@@ -184,7 +185,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 ;; w:: page width (integer)
 ;; inDoc:: unread input (tseq of Token, optional)
 (define* (new-FmtSt w (inDoc empty-tseq))
-  (FmtSt w w empty-tseq inDoc 0 '("") #f #f))
+  (FmtSt w w empty-tseq empty-tseq inDoc 0 '("") #f #f))
 
 ;; Flushes buffered documents, committing decisions made thus far.
 ;; After this it is safe to consume all of 'outDoc'. Note that this
@@ -193,19 +194,18 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 (define (flush st) ;; FmtSt -> FmtSt
   (struct-copy FmtSt (grp-flush st) (bt #f)))
 
-;; Note that this function does not support groupings.
+;; Note that this function does not handle groupings.
 ;; st:: current state (FmtSt)
 ;; d:: token to process (Token)
-;; inDoc:: input stream after token (tseq)
 ;; Returns:: new state (FmtSt)
-(define (process-token/nogroupings st d inDoc)
+(define (process-token/mid st d)
   (let ((k (FmtSt-k st))
         (w (FmtSt-w st))
         (outDoc (FmtSt-outDoc st))
         (i (car (FmtSt-lvStack st))))
     (cond
      ((Nest? d)
-      (struct-copy FmtSt st (inDoc inDoc)
+      (struct-copy FmtSt st
                    (lvStack
                     (margin (FmtSt-lvStack st) k (Nest-lv d)))))
      ((Text? d)
@@ -216,12 +216,12 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
               (bt (FmtSt-bt st)))
           (if (and bt (> k w))
               bt ;; backtrack
-              (struct-copy FmtSt st (inDoc inDoc)
+              (struct-copy FmtSt st
                            (k k) (outDoc (tseq-put outDoc d)))))))
      ((Line? d)
       ;; A break always fits, and then we're committed, and
       ;; won't backtrack from here.
-      (struct-copy FmtSt st (inDoc inDoc)
+      (struct-copy FmtSt st
                    (k (string-length i))
                    (bt #f)
                    (outDoc
@@ -232,10 +232,16 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
       ;; Pick left option, leave right for backtracking.
       (let ((l (Union-l d))
             (r (Union-r d))
-            (sh (Union-sh d)))
+            (sh (Union-sh d))
+            (midDoc (FmtSt-midDoc st)))
         (let ((r-st
+               ;; xxx We have a problem here as well. Now any
+               ;; groupings within unions would not get processed as
+               ;; groupings, which is not right. Yet we cannot just
+               ;; put them past any groupings either and hope to
+               ;; preserve ordering.
                (struct-copy FmtSt st
-                            (inDoc (tseq-append r inDoc)))))
+                            (midDoc (tseq-cons r midDoc)))))
           (struct-copy FmtSt st
                        (w (sh (FmtSt-cw st) i k))
                        (inDoc
@@ -258,49 +264,29 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
      (else (error "process-token/nogroupings: unexpected" d))
      )))
 
-;; This variant does not take input from 'st', but rather uses the
-;; stream 's' passed as an argument. It is generally not OK to use
-;; such a function. Whenever a token is processed, state is also dealt
-;; with, possibly including backtracking state. And there should be no
-;; input anywhere that is not included in the state(s), as that may
-;; lead to inconsistencies.
-;;
-;; st:: current state (FmtSt)
-;; s:: stream to process (tseq)
-;; Returns:: new state (FmtSt)
-(define (process-tseq/nogroupings st s)
-  (let ((inDoc (FmtSt-inDoc st)))
-    (let next ((st st) (s s))
-      (let-values (((h t) (tseq-get s)))
-        (if (not h)
-            st
-            (next (process-token/nogroupings st h inDoc) t))))))
-
-;; st:: current state (FmtSt)
-;; d:: token to process (Token)
-;; inDoc:: input stream after token (tseq)
-;; Returns:: new state (FmtSt)
-(define (process-token st d inDoc)
-  (cond
-   ((Begin? d)
-    (grp-begin (struct-copy FmtSt st (inDoc inDoc)) d))
-   ((End? d)
-    (grp-end (struct-copy FmtSt st (inDoc inDoc))))
-   ((FmtSt-grp st)
-    (grp-put (struct-copy FmtSt st (inDoc inDoc)) d))
-   (else
-    (process-token/nogroupings st d inDoc))))
-
 ;; st:: current state (FmtSt)
 ;; Returns:: new state (FmtSt)
-(define (process-token/st st)
-  (let-values (((d inDoc) (tseq-get (FmtSt-inDoc st))))
-    (if (not d)
-        st
-        (process-token st d inDoc))))
+(define (process-token st)
+  (let-values (((d midDoc) (tseq-get (FmtSt-midDoc st))))
+    (if d
+        (process-token/mid (struct-copy FmtSt st (midDoc midDoc)) d)
+        (let-values (((d inDoc) (tseq-get (FmtSt-inDoc st))))
+          (if (not d) st
+              (let ((st (struct-copy FmtSt st (inDoc inDoc))))
+                (cond
+                 ((Begin? d)
+                  (grp-begin st d))
+                 ((End? d)
+                  (grp-end st))
+                 ((FmtSt-grp st)
+                  (grp-put st d))
+                 (else
+                  (process-token/mid st d)))))))))
 
-(define (FmtSt-eof? st) ;; FmtSt -> boolean
-  (tseq-empty? (FmtSt-inDoc st)))
+;; Whether the state has any data to be processed.
+(define (FmtSt-pending? st) ;; FmtSt -> boolean
+  (or (not (tseq-empty? (FmtSt-inDoc st)))
+      (not (tseq-empty? (FmtSt-midDoc st)))))
 
 ;; Adds a tseq to input.
 (define* (FmtSt-write st s) ;; FmtSt, tseq of Token -> St
@@ -312,11 +298,10 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 
 ;; Processes tokens for as long as there is input.
 (define (process-input st) ;; FmtSt -> FmtSt
-  (let loop ((st st) (inDoc (FmtSt-inDoc st)))
-    (let-values (((d inDoc) (tseq-get inDoc)))
-      (if (not d)
-          st
-          (loop (process-token st d inDoc) inDoc)))))
+  (let loop ((st st))
+    (if (FmtSt-pending? st)
+        (loop (process-token st))
+        st)))
 
 ;;; 
 ;;; text output
@@ -362,8 +347,8 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
   (let loop ()
     (unless (FmtSt-bt st)
       (set! st (pgf-print/st/buffered st out)))
-    (set! st (process-token/st st))
-    (if (FmtSt-eof? st) st (loop))))
+    (set! st (process-token st))
+    (if (FmtSt-pending? st) (loop) st)))
 
 (define* (pgf-print/st/flush st (out (current-output-port)))
   (pgf-print/st/buffered (flush (pgf-print/st/safe st out)) out))
