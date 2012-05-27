@@ -112,12 +112,20 @@
 (define* (make-grouping name
                        #:new new
                        #:put put
+                       #:put-get (put-get #f)
                        #:accept (accept
                                  (lambda (st e n)
                                    (put st e)))
+                       #:accept-get (accept-get #f)
                        #:end end
                        #:eof (eof eof/default))
-  (Grouping name new put accept end eof))
+  (let ((put-get (or put-get
+                     (lambda (st e)
+                       (values (put st e) #f))))
+        (accept-get (or accept-get
+                        (lambda (st e name)
+                          (values (accept st e name) #f)))))
+    (Grouping name new put-get accept-get end eof)))
 
 (define* (make-grouping/tseq-call name f)
   (make-grouping name
@@ -129,18 +137,18 @@
   (make-grouping/tseq-call 'group group))
 
 (define* fill-grouping
-   (Grouping
-    'fill
-    (lambda () (FSt empty-tseq '())) ;; new
-    f-put ;; put
-    f-put ;; accept
-    (lambda (st) ;; end
-      (let ((lst (cons (FSt-s st) (FSt-lst st))))
-        (fill/elems (reverse lst))))
-    (lambda (st name) ;; eof
-      (error "unclosed Fill"
-             (cons (reverse (FSt-lst st)) (FSt-s st))))
-    ))
+  (make-grouping
+   'fill
+   #:new (lambda () (FSt empty-tseq '()))
+   #:put f-put
+   #:accept f-put
+   #:end (lambda (st)
+           (let ((lst (cons (FSt-s st) (FSt-lst st))))
+             (fill/elems (reverse lst))))
+   #:eof (lambda (st name)
+           (error "unclosed Fill"
+                  (cons (reverse (FSt-lst st)) (FSt-s st))))
+   ))
 
 (define* group/ (Begin group-grouping))
 (define* /group (End group-grouping))

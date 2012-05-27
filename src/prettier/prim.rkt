@@ -42,6 +42,40 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 ;; outer:: outer grouping state (GrpSt or #f)
 (struct GrpSt (type st outer) #:transparent)
 
+;; Emits the specified tokens from a source group to an outer group.
+;; The outer group may further emit tokens forward, all the way up to
+;; the top-level. (As this function may cause actual token processing
+;; and layout decisions, make sure that 'st' is consistent and
+;; complete when calling this function. Any patching afterwards may
+;; not help as copies may already have been created, say for
+;; backtracking.)
+;;
+;; st:: formatting state (FmtSt)
+;; sg:: source group (GrpSt)
+;; s:: token stream to receive (tseq or #f)
+;; Returns:: formatting state (FmtSt)
+(define (grp-emit st sg s)
+  (define (to-outer name tg)
+    (let* ((g-type (GrpSt-type tg))
+           (g-st (GrpSt-st tg))
+           (accept (Grouping-accept g-type)))
+      (let-values (((n-g-st r) (accept g-st s name)))
+        (let* ((n-grp (struct-copy GrpSt tg (st n-g-st)))
+               (n-st (struct-copy FmtSt st (grp n-grp))))
+          (grp-emit n-st tg r)))))
+
+  (define (to-top)
+    (process-tseq/nogroupings st s))
+
+  (if (not s)
+      st
+      (let* ((tg (GrpSt-outer sg)))
+        (if tg
+            (let* ((g-type (GrpSt-type sg))
+                   (name (Grouping-name g-type)))
+              (to-outer name tg))
+            (to-top)))))
+
 ;; st:: formatting state (FmtSt)
 ;; Returns:: formatting state (FmtSt)
 (define (grp-flush st)
@@ -75,24 +109,10 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
            (g-st (GrpSt-st grp))
            (outer (GrpSt-outer grp))
            (end-f (Grouping-end g-type))
-           (g-tok (end-f g-st)))
-      (if outer
-          ;; Have outer grouping accept the synthesized tseq that is
-          ;; the result of the inner grouping.
-          (let ((name (Grouping-name g-type))
-                (grp outer))
-            (let* ((g-type (GrpSt-type grp))
-                   (g-st (GrpSt-st grp))
-                   (accept (Grouping-accept g-type))
-                   (n-g-st (accept g-st g-tok name))
-                   (n-grp (struct-copy GrpSt grp (st n-g-st))))
-              (struct-copy FmtSt st (grp n-grp))))
-          ;; Unget synthesized tseq into the input stream. Naturally
-          ;; any groupings in the cons'ed tseq will also get
-          ;; processed.
-          (struct-copy FmtSt st
-                       (grp #f)
-                       (inDoc (tseq-cons g-tok (FmtSt-inDoc st))))))))
+           (r (end-f g-st)))
+      ;; Have outer context accept the synthesized tseq that is the
+      ;; result of the grouping. Also pop the ending grouping.
+      (grp-emit (struct-copy FmtSt st (grp outer)) grp r))))
 
 ;; st:: formatting state (FmtSt)
 ;; h:: token belonging in the grouping (Token)
@@ -101,10 +121,11 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
   (let ((grp (FmtSt-grp st)))
     (let* ((g-type (GrpSt-type grp))
            (g-st (GrpSt-st grp))
-           (put (Grouping-put g-type))
-           (n-g-st (put g-st h))
-           (n-grp (struct-copy GrpSt grp (st n-g-st))))
-      (struct-copy FmtSt st (grp n-grp)))))
+           (put (Grouping-put g-type)))
+      (let-values (((n-g-st r) (put g-st h)))
+        (let* ((n-grp (struct-copy GrpSt grp (st n-g-st)))
+               (n-st (struct-copy FmtSt st (grp n-grp))))
+          (grp-emit n-st grp r))))))
 
 ;;; 
 ;;; stack
@@ -236,6 +257,24 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
                    (inDoc (tseq-append (Together-m d) inDoc))))
      (else (error "process-token/nogroupings: unexpected" d))
      )))
+
+;; This variant does not take input from 'st', but rather uses the
+;; stream 's' passed as an argument. It is generally not OK to use
+;; such a function. Whenever a token is processed, state is also dealt
+;; with, possibly including backtracking state. And there should be no
+;; input anywhere that is not included in the state(s), as that may
+;; lead to inconsistencies.
+;;
+;; st:: current state (FmtSt)
+;; s:: stream to process (tseq)
+;; Returns:: new state (FmtSt)
+(define (process-tseq/nogroupings st s)
+  (let ((inDoc (FmtSt-inDoc st)))
+    (let next ((st st) (s s))
+      (let-values (((h t) (tseq-get s)))
+        (if (not h)
+            st
+            (next (process-token/nogroupings st h inDoc) t))))))
 
 ;; st:: current state (FmtSt)
 ;; d:: token to process (Token)

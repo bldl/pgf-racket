@@ -24,6 +24,8 @@
 (define (mk-text/lines n #:base (base "")) ;; integer -> tseq
   (add-between (mk-text n #:base base) br))
 
+;; 'prim' used to allow this, but no longer does; a grouping may not
+;; produce output with groupings.
 (define (foobar-f x)
   (tseq fill/ (mk-text/lines 6 #:base "filled") /fill))
 (define foobar-grouping
@@ -66,20 +68,23 @@
               (Text ")")))
          )
     (list
-     (cons "MyTogether" (tseq "111" msp (my-together "222" msp "333") msp "444"))
      ;;(cons "unclosed stream group (XML style)" (tseq group/ (mk-text/lines 6 #:base "word")))
-     (cons "foobar grouping" (tseq "begin" sp foobar/ "anything" br "here" sp "will" br "vanish" /foobar sp "end"))
-     (cons "stream group (XML style)" (tseq group/ (mk-text/lines 6 #:base "word") /group))
-     (cons "stream group and fill (tseq/gr)" (tseq gr fl (mk-text/lines 10) end br fl (mk-text/lines 20) end end))
-     (cons "nested stream fills (tseq/gr)" (tseq fl "a" br fl fl "b" br fl (mk-text/lines 20) end br "c" end br "d" end end))
-     (cons "stream fill (tseq/gr)" (tseq/gr fl (mk-text/lines 20) end))
-     (cons "stream group (tseq/gr)" (tseq/gr gr gr "(" align "1 +" br "2" dedent ") *" end br gr "(" align "3 +" br "4 +" br gr "(" align "5 +" br "6 +" br "7" dedent ") +" end br "8" dedent ")" end end))
-     (cons "stream group (complex group)" (group-stream (tseq gr gr "(" align "1 +" br "2" dedent ") *" end br gr "(" align "3 +" br "4 +" br gr "(" align "5 +" br "6 +" br "7" dedent ") +" end br "8" dedent ")" end end)))
-     (cons "stream group (double group)" (group-stream (tseq gr gr "1 +" br "2 +" br "3" end end)))
-     (cons "stream group (actual group)" (group-stream (tseq gr "1 +" br "2 +" br "3" end)))
-     (cons "stream group (seq)" (group-stream (tseq "1" align "2" dedent "3")))
-     (cons "stream group (seq with breaks)" (group-stream (tseq "1" align br "2" dedent br "3")))
-     (cons "stream group (single token)" (group-stream "group-stream"))
+     ;;(cons "foobar grouping" (tseq "begin" sp foobar/ "anything" br "here" sp "will" br "vanish" /foobar sp "end"))
+
+     (cons "simple stream group (XML style)" (tseq group/ "OneWord" /group))
+     
+     ;;(cons "stream group (XML style)" (tseq group/ (mk-text/lines 6 #:base "word") /group))
+     ;; (cons "stream group and fill (tseq/gr)" (tseq gr fl (mk-text/lines 10) end br fl (mk-text/lines 20) end end))
+     ;; (cons "nested stream fills (tseq/gr)" (tseq fl "a" br fl fl "b" br fl (mk-text/lines 20) end br "c" end br "d" end end))
+     ;; (cons "stream fill (tseq/gr)" (tseq/gr fl (mk-text/lines 20) end))
+     ;; (cons "stream group (tseq/gr)" (tseq/gr gr gr "(" align "1 +" br "2" dedent ") *" end br gr "(" align "3 +" br "4 +" br gr "(" align "5 +" br "6 +" br "7" dedent ") +" end br "8" dedent ")" end end))
+     ;; (cons "stream group (complex group)" (group-stream (tseq gr gr "(" align "1 +" br "2" dedent ") *" end br gr "(" align "3 +" br "4 +" br gr "(" align "5 +" br "6 +" br "7" dedent ") +" end br "8" dedent ")" end end)))
+     ;; (cons "stream group (double group)" (group-stream (tseq gr gr "1 +" br "2 +" br "3" end end)))
+     ;; (cons "stream group (actual group)" (group-stream (tseq gr "1 +" br "2 +" br "3" end)))
+     ;; (cons "stream group (seq)" (group-stream (tseq "1" align "2" dedent "3")))
+     ;; (cons "stream group (seq with breaks)" (group-stream (tseq "1" align br "2" dedent br "3")))
+     ;; (cons "stream group (single token)" (group-stream "group-stream"))
+
      (cons "normal grouping (basic)" (group (cat (group (cat "(1 +" br "2 +" br "3) *")) br (group (cat "(4 +" br "5 +" br "6) *")) br (group (cat "(7 +" br "8 +" br "9)")))))
      (cons "normal grouping (nested)" (cat (indent 2) (group/cat (group/cat "(11 +" br "22) *") br (group/cat "(1 +" br "2 +" br (group/cat "(3 +" br "4 +" br "5) +") br "6)")) dedent))
      (cons "comparison 1 (group)" (cat (indent 2) (group/cat (group/cat "(11 +" br "22) *") br (group/cat "(11 +" br "22 +" br (group/cat "(3 +" br "4 +" br "5) +") br "6)")) dedent))
@@ -89,6 +94,7 @@
      ;;(cons "deeper special grouping, tight op" (group* (cat* (cat* "(1 +" "2) *") (cat* "(1 +" "2 +" (cat* "(3 +" "4 +" "5) +") "6)"))))
      ;;(cons "parenthesized special grouped" (group* (list (list (cat "(foo +" "bar)") (cat "*")) (cat "(1 -" "2 -" "3)"))))
      ;;(cons "special grouped" (group* (list (list (cat "foo +" "bar") (cat "+")) (cat "1 -" "2 -" "3"))))
+     (cons "MyTogether" (tseq "111" msp (my-together "222" msp "333") msp "444"))
      (cons "grouped list" d4)
      (cons "nesting" d2)
      (cons "flattened" (flatten d1))
