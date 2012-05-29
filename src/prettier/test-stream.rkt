@@ -67,6 +67,7 @@
               (Text ")")))
          )
     (list
+     (cons "simple fillwords/" (tseq fillwords/ "fill" "these" "words" /fillwords))
      ;;(cons "unclosed stream group (XML style)" (tseq group/ (mk-text/lines 6 #:base "word")))
      (cons "foobar grouping" (tseq "begin" sp foobar/ "anything" br "here" sp "will" br "vanish" /foobar sp "end"))
 

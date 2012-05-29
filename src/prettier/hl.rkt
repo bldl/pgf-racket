@@ -76,21 +76,6 @@
 (define* (fillwords s)
   (fill/elems (words s)))
 
-#|
-
-(define* (<+> x y)
-  (concat x (text " ") y))
-
-(define* (</> x y)
-  (concat x (line) y))
-
-(define* spread (fix folddoc <+>))
-
-(define* (<+/> x y)
-  (concat x (private-union (text " ") (line)) y))
-
-|#
-
 ;;; 
 ;;; grouping input streams
 ;;; 
@@ -127,6 +112,17 @@
                           (values (accept st e name) #f)))))
     (Grouping name new put-get accept-get end eof)))
 
+(define* (make-grouping/inc name
+                            #:new (new (thunk #f))
+                            #:put-get put-get
+                            #:accept-get (accept-get #f)
+                            #:end (end (lambda (st) #f))
+                            #:eof (eof eof/default))
+  (let ((accept-get (or accept-get
+                        (lambda (st e name)
+                          (put-get st e)))))
+    (Grouping name new put-get accept-get end eof)))
+
 (define* (make-grouping/tseq-call name f)
   (make-grouping name
                  #:new (thunk empty-tseq)
@@ -136,7 +132,7 @@
 (define* group-grouping
   (make-grouping/tseq-call 'group group))
 
-(define* fill-grouping
+(define* fill-grouping/elems
   (make-grouping
    'fill
    #:new (lambda () (FSt empty-tseq '()))
@@ -150,14 +146,28 @@
                   (cons (reverse (FSt-lst st)) (FSt-s st))))
    ))
 
+(define (f-put-get st e)
+  (values #f (if st e (tseq sp e))))
+
+(define* fill-grouping/tokens
+  (make-grouping/inc
+   'fill
+   #:new (thunk #t)
+   #:put-get f-put-get
+   ))
+
 (define* group/ (Begin group-grouping))
 (define* /group (End group-grouping))
-(define* fill/ (Begin fill-grouping))
-(define* /fill (End fill-grouping))
+
+(define* fill/ (Begin fill-grouping/elems))
+(define* /fill (End fill-grouping/elems))
+
+(define* fillwords/ (Begin fill-grouping/tokens))
+(define* /fillwords (End fill-grouping/tokens))
 
 ;; for backward compatibility
 (define* gr (Begin group-grouping))
-(define* fl (Begin fill-grouping))
+(define* fl (Begin fill-grouping/elems))
 (define* end (End #f))
 
 ;; for backward compatibility
@@ -167,7 +177,7 @@
 (define* group-stream identity)
 
 ;;; 
-;;; filling grouping
+;;; filling grouping (deprecated)
 ;;; 
 
 ;; This kind of space appears as Line() in some choice contexts, and
