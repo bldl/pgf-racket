@@ -13,12 +13,12 @@
                 cw ;; specified page width (integer, constant)
                 w ;; page width (rational)
                 outDoc ;; formatted document (tseq of Token)
-                midDoc ;; read but unformatted tokens (tseq of Token)
                 inDoc ;; unread input (tseq of Token)
                 k ;; current column (integer)
-                lvStack ;; nesting stack (stack of string)
-                bt ;; backtracking state (if any; can be chained)
+                lvStack ;; nesting stack (list of string)
+                bt ;; backtracking state (FmtSt or #f; can be chained)
                 grp ;; grouping state (GrpSt or #f)
+                grps ;; grouping stack (list of GrpSt)
                 ) #:transparent)
 
 ;;; 
@@ -41,7 +41,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 ;; type:: grouping type (Grouping)
 ;; st:: grouping state (any)
 ;; outer:: outer grouping state (GrpSt or #f)
-(struct GrpSt (type st outer) #:transparent)
+(struct GrpSt Token (type st outer) #:transparent)
 
 ;; Emits the specified tokens from a source group to an outer group.
 ;; The outer group may further emit tokens forward, all the way up to
@@ -90,6 +90,28 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
   st)
 
 ;; st:: formatting state (FmtSt)
+;; grp:: group to push (GrpSt)
+;; Returns:: formatting state (FmtSt)
+(define (grp-push st grp)
+  (let ((old-grp (FmtSt-grp st)))
+    (if old-grp
+        (let ((grps (cons old-grp (FmtSt-grps st))))
+          (struct-copy FmtSt st (grp grp) (grps grps)))
+        (struct-copy FmtSt st (grp grp)))))
+
+;; st:: formatting state (FmtSt)
+;; Returns:: formatting state (FmtSt)
+(define (grp-pop st)
+  (unless (FmtSt-grp st)
+    (error "no group to pop"))
+  (let ((grps (FmtSt-grps st)))
+    (if (null? grps)
+        (struct-copy FmtSt st (grp #f))
+        (let ((n-grp (car grps))
+              (n-grps (cdr grps)))
+          (struct-copy FmtSt st (grp grp) (grps grps))))))
+
+;; st:: formatting state (FmtSt)
 ;; h:: Begin token (Token)
 ;; Returns:: formatting state (FmtSt)
 (define (grp-begin st h)
@@ -104,7 +126,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 (define (grp-end st)
   (let ((grp (FmtSt-grp st)))
     (unless grp
-      (error "unopened grouping: before"
+      (error "close grouping without open: before"
              (tseq-take 5 (FmtSt-inDoc st))))
     (let* ((g-type (GrpSt-type grp))
            (g-st (GrpSt-st grp))
@@ -126,6 +148,9 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
       (let-values (((n-g-st r) (put g-st h)))
         (let* ((n-grp (struct-copy GrpSt grp (st n-g-st)))
                (n-st (struct-copy FmtSt st (grp n-grp))))
+          ;; We have to specify originating group as GrpSt is actually
+          ;; a stack of GrpSt. (And we have another "sideways" stack
+          ;; of GrpSt.)
           (grp-emit n-st grp r))))))
 
 ;;; 
@@ -185,7 +210,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 ;; w:: page width (integer)
 ;; inDoc:: unread input (tseq of Token, optional)
 (define* (new-FmtSt w (inDoc empty-tseq))
-  (FmtSt w w empty-tseq empty-tseq inDoc 0 '("") #f #f))
+  (FmtSt w w empty-tseq inDoc 0 '("") #f #f '()))
 
 ;; Flushes buffered documents, committing decisions made thus far.
 ;; After this it is safe to consume all of 'outDoc'. Note that this
@@ -194,11 +219,33 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 (define (flush st) ;; FmtSt -> FmtSt
   (struct-copy FmtSt (grp-flush st) (bt #f)))
 
-;; Note that this function does not handle groupings.
+;; This function unshifts grouping state out of the way so that
+;; prepending input 's' becomes possible. Note that any tokens that
+;; have reached the algorithm proper have been past all groupings
+;; already, and have nothing to do with groupings.
+;;
+;; st:: current state (FmtSt)
+;; s:: stream to prepend to inDoc (tseq)
+;; Returns:: new state (FmtSt)
+(define (FmtSt-cons st s)
+  (let ((grp (FmtSt-grp st))
+        (inDoc (FmtSt-inDoc st)))
+    (if (not grp)
+        (struct-copy FmtSt st (inDoc (tseq-cons s inDoc)))
+        (let ((grps (FmtSt-grps st)))
+          (struct-copy FmtSt st
+                       (grps '())
+                       (grp #f)
+                       (inDoc (tseq-append s (reverse grps) grp inDoc)))))))
+
+;; Before calling this function ensure that all state (except for the
+;; argument token) is consistent and in 'st'. Note that this function
+;; does not deal with groupings.
+;;
 ;; st:: current state (FmtSt)
 ;; d:: token to process (Token)
 ;; Returns:: new state (FmtSt)
-(define (process-token/mid st d)
+(define (process-token/algo st d)
   (let ((k (FmtSt-k st))
         (w (FmtSt-w st))
         (outDoc (FmtSt-outDoc st))
@@ -232,61 +279,50 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
       ;; Pick left option, leave right for backtracking.
       (let ((l (Union-l d))
             (r (Union-r d))
-            (sh (Union-sh d))
-            (midDoc (FmtSt-midDoc st)))
+            (sh (Union-sh d)))
         (let ((r-st
-               ;; xxx We have a problem here as well. Now any
-               ;; groupings within unions would not get processed as
-               ;; groupings, which is not right. Yet we cannot just
-               ;; put them past any groupings either and hope to
-               ;; preserve ordering.
-               (struct-copy FmtSt st
-                            (midDoc (tseq-cons r midDoc)))))
-          (struct-copy FmtSt st
-                       (w (sh (FmtSt-cw st) i k))
-                       (inDoc
-                        (tseq-append l (Width w) inDoc))
-                       (bt r-st)))))
+               (FmtSt-cons st r)))
+          (FmtSt-cons 
+           (struct-copy FmtSt st
+                        (w (sh (FmtSt-cw st) i k))
+                        (bt r-st))
+           (tseq l (Width w))))))
      ((Width? d)
-      (struct-copy FmtSt st
-                   (w (Width-w d))
-                   (inDoc inDoc)))
+      (struct-copy FmtSt st (w (Width-w d))))
      ((UserToken? d)
       ;; Our current design lends itself to creating a
       ;; simple but fairly powerful extension mechanism like
       ;; this. Just use a UserToken or a subtype to define
       ;; how the state should change.
-      ((UserToken-f d) (struct-copy FmtSt st
-                                    (inDoc inDoc)) d))
+      ((UserToken-f d) st d))
      ((Together? d)
-      (struct-copy FmtSt st
-                   (inDoc (tseq-append (Together-m d) inDoc))))
+      (FmtSt-cons st (Together-m d)))
      (else (error "process-token/nogroupings: unexpected" d))
      )))
 
 ;; st:: current state (FmtSt)
 ;; Returns:: new state (FmtSt)
 (define (process-token st)
-  (let-values (((d midDoc) (tseq-get (FmtSt-midDoc st))))
-    (if d
-        (process-token/mid (struct-copy FmtSt st (midDoc midDoc)) d)
-        (let-values (((d inDoc) (tseq-get (FmtSt-inDoc st))))
-          (if (not d) st
-              (let ((st (struct-copy FmtSt st (inDoc inDoc))))
-                (cond
-                 ((Begin? d)
-                  (grp-begin st d))
-                 ((End? d)
-                  (grp-end st))
-                 ((FmtSt-grp st)
-                  (grp-put st d))
-                 (else
-                  (process-token/mid st d)))))))))
+  (let-values (((d inDoc) (tseq-get (FmtSt-inDoc st))))
+    (if (not d)
+        st
+        (let ((st (struct-copy FmtSt st (inDoc inDoc))))
+          (cond
+           ((GrpSt? d)
+            (grp-push st d))
+           ((Begin? d)
+            (grp-begin st d))
+           ((End? d)
+            (grp-end st))
+           ((FmtSt-grp st)
+            (grp-put st d))
+           (else
+            (process-token/algo st d)))))))
 
 ;; Whether the state has any data to be processed.
 (define (FmtSt-pending? st) ;; FmtSt -> boolean
-  (or (not (tseq-empty? (FmtSt-inDoc st)))
-      (not (tseq-empty? (FmtSt-midDoc st)))))
+  ;; Any non-GrpSt tokens are always kept in inDoc, so this is enough.
+  (not (tseq-empty? (FmtSt-inDoc st))))
 
 ;; Adds a tseq to input.
 (define* (FmtSt-write st s) ;; FmtSt, tseq of Token -> St
