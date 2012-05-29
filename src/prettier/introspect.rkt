@@ -17,7 +17,7 @@
      (cond
       ((Text? t) `(text ,(Text-s t)))
       ((Line? t) '(br))
-      ((Space? t) `(space ,(Space-s t)))
+      ;;((Space? t) `(space ,(Space-s t)))
       ((Union? t) `(union ,(tseq-to-sexp (Union-l t))
                           ,(tseq-to-sexp (Union-r t))))
       ((Nest? t) (let ((lv (Nest-lv t)))

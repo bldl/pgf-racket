@@ -40,16 +40,14 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 
 ;; type:: grouping type (Grouping)
 ;; st:: grouping state (any)
-;; outer:: outer grouping state (GrpSt or #f)
-(struct GrpSt Token (type st outer) #:transparent)
+(struct GrpSt Token (type st) #:transparent)
 
 ;; Emits the specified tokens from a source group to an outer group.
-;; The outer group may further emit tokens forward, all the way up to
-;; the top-level. (As this function may cause actual token processing
-;; and layout decisions, make sure that 'st' is consistent and
-;; complete when calling this function. Any patching afterwards may
-;; not help as copies may already have been created, say for
-;; backtracking.)
+;; The outer group (if any) is assumed to be in the 'grp' field, and
+;; the source group need not be in the state any longer (it must be
+;; specified as 'sg'). The outer group may further emit tokens
+;; forward, all the way up to the top-level (i.e. beyond all the
+;; groupings).
 ;;
 ;; st:: formatting state (FmtSt)
 ;; sg:: source group (GrpSt)
@@ -63,19 +61,29 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
       (let-values (((n-g-st r) (accept g-st s name)))
         (let* ((n-grp (struct-copy GrpSt tg (st n-g-st)))
                (n-st (struct-copy FmtSt st (grp n-grp))))
-          (grp-emit n-st tg r)))))
+          (if (not r)
+              n-st
+              ;; Since the current grouping produced output, that
+              ;; belongs to the next grouping, if any. Hence we make
+              ;; the next grouping the current one, and then prepend
+              ;; the tokens to be received.
+              (let ((st (grp-unshift n-st)))
+                (let ((inDoc (FmtSt-inDoc st)))
+                  (struct-copy FmtSt st
+                               (inDoc (tseq-cons r inDoc))))))))))
 
   (define (to-top)
-    (process-tseq/nogroupings st s))
+    (let ((inDoc (FmtSt-inDoc st)))
+      (struct-copy FmtSt st (inDoc (tseq-cons s inDoc)))))
 
   (if (not s)
       st
-      (let* ((tg (GrpSt-outer sg)))
-        (if tg
+      (let* ((tg (FmtSt-grp st)))
+        (if (not tg)
+            (to-top)
             (let* ((g-type (GrpSt-type sg))
                    (name (Grouping-name g-type)))
-              (to-outer name tg))
-            (to-top)))))
+              (to-outer name tg))))))
 
 ;; st:: formatting state (FmtSt)
 ;; Returns:: formatting state (FmtSt)
@@ -107,19 +115,26 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
   (let ((grps (FmtSt-grps st)))
     (if (null? grps)
         (struct-copy FmtSt st (grp #f))
-        (let ((n-grp (car grps))
-              (n-grps (cdr grps)))
+        (let ((grp (car grps))
+              (grps (cdr grps)))
           (struct-copy FmtSt st (grp grp) (grps grps))))))
+
+;; st:: formatting state (FmtSt)
+;; Returns:: formatting state (FmtSt)
+(define (grp-unshift st)
+  (let ((old-grp (FmtSt-grp st))
+        (st (grp-pop st))
+        (inDoc (FmtSt-inDoc st)))
+    (struct-copy FmtSt st (inDoc (tseq-cons old-grp inDoc)))))
 
 ;; st:: formatting state (FmtSt)
 ;; h:: Begin token (Token)
 ;; Returns:: formatting state (FmtSt)
 (define (grp-begin st h)
-  (let* ((outer (FmtSt-grp st))
-         (g-type (Begin-grouping h))
+  (let* ((g-type (Begin-grouping h))
          (g-st ((Grouping-new g-type)))
-         (inner (GrpSt g-type g-st outer)))
-    (struct-copy FmtSt st (grp inner))))
+         (inner (GrpSt g-type g-st)))
+    (grp-push st inner)))
 
 ;; st:: formatting state (FmtSt)
 ;; Returns:: formatting state (FmtSt)
@@ -130,12 +145,12 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
              (tseq-take 5 (FmtSt-inDoc st))))
     (let* ((g-type (GrpSt-type grp))
            (g-st (GrpSt-st grp))
-           (outer (GrpSt-outer grp))
            (end-f (Grouping-end g-type))
            (r (end-f g-st)))
-      ;; Have outer context accept the synthesized tseq that is the
-      ;; result of the grouping. Also pop the ending grouping.
-      (grp-emit (struct-copy FmtSt st (grp outer)) grp r))))
+      (let ((st (grp-pop st)))
+        (if (not r)
+            st
+            (grp-emit st grp r))))))
 
 ;; st:: formatting state (FmtSt)
 ;; h:: token belonging in the grouping (Token)
@@ -148,10 +163,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
       (let-values (((n-g-st r) (put g-st h)))
         (let* ((n-grp (struct-copy GrpSt grp (st n-g-st)))
                (n-st (struct-copy FmtSt st (grp n-grp))))
-          ;; We have to specify originating group as GrpSt is actually
-          ;; a stack of GrpSt. (And we have another "sideways" stack
-          ;; of GrpSt.)
-          (grp-emit n-st grp r))))))
+          (grp-emit (grp-unshift n-st) grp r))))))
 
 ;;; 
 ;;; stack
