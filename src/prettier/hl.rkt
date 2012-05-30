@@ -96,32 +96,33 @@
 
 (define* (make-grouping name
                        #:new new
-                       #:put put
+                       #:put (put #f)
                        #:put-get (put-get #f)
-                       #:accept (accept
-                                 (lambda (st e n)
-                                   (put st e)))
+                       #:accept (accept #f)
                        #:accept-get (accept-get #f)
-                       #:end end
+                       #:end (end (lambda (st) #f))
                        #:eof (eof eof/default))
-  (let ((put-get (or put-get
-                     (lambda (st e)
-                       (values (put st e) #f))))
-        (accept-get (or accept-get
-                        (lambda (st e name)
-                          (values (accept st e name) #f)))))
-    (Grouping name new put-get accept-get end eof)))
-
-(define* (make-grouping/inc name
-                            #:new (new (thunk #f))
-                            #:put-get put-get
-                            #:accept-get (accept-get #f)
-                            #:end (end (lambda (st) #f))
-                            #:eof (eof eof/default))
-  (let ((accept-get (or accept-get
-                        (lambda (st e name)
-                          (put-get st e)))))
-    (Grouping name new put-get accept-get end eof)))
+  (when (and put put-get)
+    (error "make-grouping: both #:put and #:put-get arguments" put put-get))
+  (when (not (or put put-get))
+    (error "make-grouping: neither #:put nor #:put-get arguments"))
+  (when (and accept accept-get)
+    (error "make-grouping: both #:accept and #:accept-get arguments"
+           accept accept-get))
+  (unless put-get
+    (set! put-get (lambda (st e)
+                    (values (put st e) #f))))
+  (unless accept-get
+    (cond
+     (accept
+      (set! accept-get (lambda (st e name)
+                         (values (accept st e name) #f))))
+     (put-get
+      (set! accept-get (lambda (st e name)
+                         (put-get st e))))
+     (else
+      (error "assertion failed"))))
+  (Grouping name new put-get accept-get end eof))
 
 (define* (make-grouping/tseq-call name f)
   (make-grouping name
@@ -150,7 +151,7 @@
   (values #f (if st e (tseq sp e))))
 
 (define* fill-grouping/tokens
-  (make-grouping/inc
+  (make-grouping
    'fillwords
    #:new (thunk #t)
    #:put-get f-put-get
