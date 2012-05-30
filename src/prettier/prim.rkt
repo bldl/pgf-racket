@@ -137,20 +137,27 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
     (grp-push st inner)))
 
 ;; st:: formatting state (FmtSt)
+;; t:: End token (Token)
 ;; Returns:: formatting state (FmtSt)
-(define (grp-end st)
-  (let ((grp (FmtSt-grp st)))
+(define (grp-end st t)
+  (let* ((grp (FmtSt-grp st))
+         (t-type (End-grouping t))
+         (t-name (and t-type (Grouping-name t-type))))
     (unless grp
-      (error "close grouping without open: before"
-             (tseq-take 5 (FmtSt-inDoc st))))
-    (let* ((g-type (GrpSt-type grp))
-           (g-st (GrpSt-st grp))
-           (end-f (Grouping-end g-type))
-           (r (end-f g-st)))
-      (let ((st (grp-pop st)))
-        (if (not r)
-            st
-            (grp-emit st grp r))))))
+      (error (format "close ~a grouping without open: before ~s"
+                     (or t-name 'unspecified)
+                     (tseq-take 5 (FmtSt-inDoc st)))))
+    (let ((g-type (GrpSt-type grp)))
+      (if (and t-type (not (eq? g-type t-type)))
+          (error (format "close ~s grouping while ~s grouping open"
+                         t-name (Grouping-name g-type)))
+          (let* ((g-st (GrpSt-st grp))
+                 (end-f (Grouping-end g-type))
+                 (r (end-f g-st)))
+            (let ((st (grp-pop st)))
+              (if (not r)
+                  st
+                  (grp-emit st grp r))))))))
 
 ;; st:: formatting state (FmtSt)
 ;; h:: token belonging in the grouping (Token)
@@ -325,7 +332,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
            ((Begin? d)
             (grp-begin st d))
            ((End? d)
-            (grp-end st))
+            (grp-end st d))
            ((FmtSt-grp st)
             (grp-put st d))
            (else
