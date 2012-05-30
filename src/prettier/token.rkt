@@ -30,7 +30,7 @@ Tokens and token sequences/streams.
 (data/expose* Token ((Nest lv) ;; Lv -> Token
                      (Text s) ;; string -> Token
                      (Line) ;; -> Token
-                     (Union l r sh) ;; stream, stream, function -> Token
+                     (Union l r) ;; stream, stream -> Token
                      (Width w) ;; rational -> Token
                      (UserToken f) ;; function -> Token
                      ;;(Space s sh) ;; string, rational -> Token
@@ -151,8 +151,7 @@ directly over a tseq.
                 (apply append (map tseq-optimize lst))))
    ((null? s) s)
    ((Union? s) (list (Union (tseq-optimize (Union-l s))
-                            (tseq-optimize (Union-r s))
-                            (Union-sh s))))
+                            (tseq-optimize (Union-r s)))))
    ((Token? s) (list s))
    ((string? s) (list (Text s)))
    ((promise? s) (tseq-optimize (force s)))

@@ -29,9 +29,6 @@
 
 (define* sp (union nbsp br))
 
-(define* (bsp sh)
-  (union nbsp br sh))
-
 (define* indent0 (Nest (LvAbs 0)))
 
 (define* align (Nest (LvRel 0)))

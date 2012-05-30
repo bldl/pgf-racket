@@ -297,16 +297,14 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
      ((Union? d)
       ;; Pick left option, leave right for backtracking.
       (let ((l (Union-l d))
-            (r (Union-r d))
-            (sh (Union-sh d)))
-        (let ((r-st
-               (FmtSt-cons st r)))
+            (r (Union-r d)))
+        (let ((r-st (FmtSt-cons st r)))
           (FmtSt-cons 
-           (struct-copy FmtSt st
-                        (w (sh (FmtSt-cw st) i k))
-                        (bt r-st))
-           (tseq l (Width w))))))
+           (struct-copy FmtSt st (bt r-st))
+           l))))
      ((Width? d)
+      ;; May be used to change page width 'w'. The default (constant)
+      ;; width 'cw' never changes.
       (struct-copy FmtSt st (w (Width-w d))))
      ((UserToken? d)
       ;; Our current design lends itself to creating a
@@ -418,26 +416,17 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 ;;; grouping construct
 ;;; 
 
-;; cw:: full page width (integer)
-;; i:: current indentation string (string)
-;; k:: current column (integer)
-;; Returns:: left choice page width (number)
-(define* (default-strength cw i k)
-  cw)
-
 ;; l:: left choice (tseq of Token)
 ;; r:: right choice (tseq of Token)
-;; sh:: page width computation function (function)
 ;; Returns:: tseq of Token
-(define* (private-union l r (sh default-strength))
-  (Union l r sh))
+(define* (private-union l r)
+  (Union l r))
 
 ;; Behaves lazily.
-(define* (private-flatten ts) ;; tseq of Token -> tseq of Token
-  (if (tseq-empty? ts)
-      ts
-      (let ((t (tseq-first ts))
-            (ts (tseq-rest ts)))
+(define* (private-flatten s) ;; tseq of Token -> tseq of Token
+  (let-values (((t ts) (tseq-get s)))
+    (if (not t)
+        s
         (cond
          ((Line? t)
           (tseq-cons/lazy (Text " ") (private-flatten ts)))
@@ -451,5 +440,5 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
           (tseq-cons/lazy t (private-flatten ts)))))))
 
  ;; tseq of Token -> tseq of Token
-(define* (private-group ts (sh default-strength))
-  (private-union (private-flatten ts) ts sh))
+(define* (private-group ts)
+  (private-union (private-flatten ts) ts))
