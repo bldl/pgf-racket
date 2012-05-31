@@ -29,6 +29,11 @@ Lisp of some kind to semantically annotated Lua source code tokens.
          (syntax-error "not an identifier" x)))
   lst)
 
+(define type-error
+  (case-lambda
+    ((desc e ctx)
+     (error (format "type error: ~s in ~s: ~a" e ctx desc)))))
+
 ;;; 
 ;;; environment
 ;;; 
@@ -108,6 +113,12 @@ Lisp of some kind to semantically annotated Lua source code tokens.
               (leval benv `(begin ,@bes))))
            ((list-rest 'lambda (list-rest ans) bes)
             (Func (ck-idents ans) env `(begin ,@bes)))
+           ((list-rest '+ es)
+            (let ((vs (map (fix leval env) es)))
+              (for ((v vs))
+                   (unless (number? v)
+                     (type-error "expected number" v e)))
+              (apply + vs)))
            ((list-rest f args) ;; function application
             (lapply env f args))
            (else
@@ -148,6 +159,8 @@ Lisp of some kind to semantically annotated Lua source code tokens.
            ((list-rest 'lambda (list-rest ans) bes)
             (let-values (((env ns) (rn-syms env ans)))
               `(lambda ,ns ,@(map (fix lrename env) bes))))
+           ((list-rest '+ es)
+            `(+ ,@(map (fix lrename env) es)))
            ((list-rest es) ;; function application
             (map (fix lrename env) es))
            (else
@@ -186,6 +199,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
    '("nested let" (80) (let ((x 1)) (let ((x x)) x)))
    '("let over lambda" (80) (let ((f (lambda () 555))) (f)))
    '("let over lambda (identity)" (80) (let ((f (lambda (x) x))) (f 666)))
+   '("lambda application (multiple args)" (80) ((lambda (x y z) (+ x y z)) 1 2 3))
    ))
 
 (define (test-exp w t e)
