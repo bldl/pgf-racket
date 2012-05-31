@@ -131,9 +131,9 @@ ranges, HTML style.
 
 (define* (printlnTokenStream toks)
   (for ((t (in-stream toks)))
-       (match t
-              ((Text " ") (display "_"))
-              ((Text s) (display (format "[~a]" s)))
-              ((Line) (display " "))
-              (else (display (format " ~s " t)))))
+      (match t
+        ((Text " ") (display "_"))
+        ((Text s) (display (format "[~a]" s)))
+        ((Line) (display " "))
+        (else (display (format " ~s " t)))))
   (newline))

@@ -11,6 +11,28 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 (require "token.rkt")
 (require "util.rkt")
 
+(define syntax-error
+  (case-lambda
+    ((desc e)
+     (error "syntax error" desc e))
+    ((e)
+     (error "syntax error" e))))
+
+(define (ck-ident x)
+  (unless (symbol? x)
+    (syntax-error "not an identifier" x))
+  x)
+
+(define (ck-idents lst)
+  (for ((x lst))
+       (unless (symbol? x)
+         (syntax-error "not an identifier" x)))
+  lst)
+
+;;; 
+;;; environment
+;;; 
+
 (define* (lenv-new)
   '())
 
@@ -21,27 +43,52 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 (define* (lenv-put env n v)
   (cons (cons n v) env))
 
+(define* (lenv-put-all env lst)
+  (append lst env))
+
 (define* (lenv-get/err env n)
   (aif v (lenv-get env n) v
        (error "undefined name" n)))
+
+;;; 
+;;; nil type
+;;; 
 
 (struct NIL ())
 
 (define* lnil (NIL))
 
-(define (syntax-error e)
-  (error "syntax error" e))
+(define* (lnil? x) (eq? lnil x))
+
+;;; 
+;;; function type
+;;; 
+
+;; ans:: argument names (list of symbol)
+;; env:: lexical environment
+;; b:: function body expression
+(struct Func (ans env b) #:transparent)
 
 (define* (lapply env fe args)
   (let ((fv (leval env fe)))
-    ;; xxx check fv is applicable
-    ;; xxx check arity? lua semantics?
-    (let ((avs (map (fix leval env) args)))
-      (void)))) ;; xxx
+    (unless (Func? fv)
+      (error "lapply: not applicable" fv))
+    (let ((ans (Func-ans fv)))
+      (unless (= (length args) (length ans))
+        (error "lapply: wrong arity" ans args))
+      (let* ((avs (map (fix leval env) args))
+             (fenv (Func-env fv))
+             (benv (lenv-put-all fenv (map cons ans avs))))
+        (leval benv (Func-b fv))))))
+
+;;; 
+;;; evaluator
+;;; 
 
 ;; This function evaluates expressions in the language directly,
 ;; without going through Lua.
 (define* (leval env e)
+  ;;(writeln e)
   (cond
    ((eq? e 'nil) lnil)
    ((symbol? e) (lenv-get/err env e))
@@ -53,11 +100,23 @@ Lisp of some kind to semantically annotated Lua source code tokens.
            ((list-rest 'begin es)
             (if (null? es) lnil
                 (for/last ((e es)) (leval env e))))
+           ((list-rest 'let
+                       (list (list ns es) ...)
+                       bes)
+            (let* ((vs (map (fix leval env) es))
+                   (benv (lenv-put-all env (map cons (ck-idents ns) vs))))
+              (leval benv `(begin ,@bes))))
+           ((list-rest 'lambda (list-rest ans) bes)
+            (Func (ck-idents ans) env `(begin ,@bes)))
            ((list-rest f args)
             (lapply env f args))
            (else
             (syntax-error e))))
    (else (syntax-error e))))
+
+;;; 
+;;; compiler
+;;; 
 
 ;; This function compiles expressions in the language to Lua source
 ;; code tokens. The result can then be pretty printed and executed
@@ -67,3 +126,42 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 (define* (lcompile env e)
   (void))
 
+;;; 
+;;; tests
+;;; 
+
+(define e-lst
+  (list
+   '("int literal" (80) 1)
+   '("string literal" (80) "foo")
+   '("boolean literal" (80) #t)
+   '("empty begin" (80) (begin))
+   '("short begin" (80) (begin 555))
+   '("empty let" (80) (let () 1))
+   '("lambda" (80) (lambda () 555))
+   '("lambda application" (80) ((lambda () 555)))
+   '("simple let" (80) (let ((x 1)) x))
+   '("nested let" (80) (let ((x 1)) (let ((x x)) x)))
+   '("let over lambda" (80) (let ((f (lambda () 555))) (f)))
+   '("let over lambda (identity)" (80) (let ((f (lambda (x) x))) (f 666)))
+   ))
+
+(define (test-exp w t e)
+  (printfln "-- ~a (w=~a)" t w)
+  (printfln "-- ~s" e)
+  (let ((v (leval (lenv-new) e)))
+    (printfln "-- --> ~s" v)
+    (displayln (width-divider w))
+    ;;(pgf-println w d)
+    (displayln "-------------")))
+
+(define (main)
+  (for ((e-rec e-lst))
+       (let ((t (first e-rec))
+             (w-lst (second e-rec))
+             (e (third e-rec)))
+         (for ((w w-lst))
+              (test-exp w t e))
+         )))
+      
+(main)

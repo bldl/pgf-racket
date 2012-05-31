@@ -189,3 +189,7 @@
     ((_ n c t e)
      (let ((n c))
        (if n t e)))))
+
+(define-syntax-rule*
+  (letv n v e ...)
+  (let ((n v)) e ...))
