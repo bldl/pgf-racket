@@ -8,6 +8,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 
 |#
 
+(require "prim.rkt")
 (require "token.rkt")
 (require "util.rkt")
 
@@ -176,8 +177,45 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 ;; using Lua, hopefully to the exactly same effect as with 'leval'.
 ;; Note that the generated token sequences have no whitespace to
 ;; separate tokens; that must be added prior to pretty printing.
-(define* (lcompile env e)
-  (void))
+(define* (lcompile e)
+  (cond
+   ((eq? e 'nil) "nil")
+   ((symbol? e) (symbol->string e))
+   ((number? e) (number->string e))
+   ((string? e) (format "~s" e))
+   ((boolean? e) (if e "true" "false"))
+   ((list? e)
+    (match e
+           ((list-rest 'begin es)
+            (if (null? es) "nil"
+                (tseq "do" (map lcompile es) "end")))
+           ((list-rest 'let
+                       (list (list ns es) ...)
+                       bes)
+            ;; We could enclose these in a block, but since the names
+            ;; are unique there is little need for such clutter.
+            (tseq (map
+                   (lambda (n e)
+                     (tseq "local" (lcompile n) "=" (lcompile e)))
+                   ns es)
+                  (map lcompile bes)))
+           ((list-rest 'lambda (list-rest ans) bes)
+            (tseq "function" "("
+                  (add-between (map lcompile ans) ",")
+                  ")" (map lcompile bes) "end"))
+           ((list-rest '+ es)
+            (add-between (map lcompile es) "+"))
+           ((list-rest f args) ;; function application
+            (tseq
+             (if (symbol? f)
+                 (symbol->string f)
+                 (tseq "(" (lcompile f) ")"))
+             "(" (add-between
+                  (map lcompile args)
+                  ",") ")"))
+           (else
+            (syntax-error e))))
+   (else (syntax-error e))))
 
 ;; we can run Lua as "lua -" and pipe the input via STDIN.
 
@@ -209,9 +247,10 @@ Lisp of some kind to semantically annotated Lua source code tokens.
     (printfln "-- ~s [renamed]" e)
     (let ((v (leval (lenv-new) e)))
       (printfln "-- --> ~s" v)
-      (displayln (width-divider w))
-      ;;(pgf-println w d)
-      (displayln "-------------"))))
+      (let ((le (lcompile e)))
+        (displayln (width-divider w))
+        (pgf-println w le)
+        (displayln "-------------")))))
 
 (define (main)
   (for ((e-rec e-lst))
