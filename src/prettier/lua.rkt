@@ -108,11 +108,51 @@ Lisp of some kind to semantically annotated Lua source code tokens.
               (leval benv `(begin ,@bes))))
            ((list-rest 'lambda (list-rest ans) bes)
             (Func (ck-idents ans) env `(begin ,@bes)))
-           ((list-rest f args)
+           ((list-rest f args) ;; function application
             (lapply env f args))
            (else
             (syntax-error e))))
    (else (syntax-error e))))
+
+;;; 
+;;; symbol renaming
+;;; 
+
+;; For making all local variable (and function) names unique,
+;; throughout the program. Note that we use lenv-* functions, but
+;; instead of values we map to unique names.
+
+(define (rn-sym env n)
+  (ck-ident n)
+  (let ((un (gensym n)))
+    (values (lenv-put env n un) un)))
+
+(define (rn-syms env ns)
+  (ck-idents ns)
+  (let ((uns (map gensym ns)))
+    (values (lenv-put-all env (map cons ns uns)) uns)))
+  
+(define (lrename env e)
+  (cond
+   ((symbol? e) (lenv-get/err env e))
+   ((list? e)
+    (match e
+           ((list-rest 'begin es)
+            `(begin ,@(map (fix lrename env) es)))
+           ((list-rest 'let
+                       (list (list ns es) ...)
+                       bes)
+            (let ((es (map (fix lrename env) es)))
+              (let-values (((env ns) (rn-syms env ns)))
+                `(let ,(map list ns es) ,@(map (fix lrename env) bes)))))
+           ((list-rest 'lambda (list-rest ans) bes)
+            (let-values (((env ns) (rn-syms env ans)))
+              `(lambda ,ns ,@(map (fix lrename env) bes))))
+           ((list-rest es) ;; function application
+            (map (fix lrename env) es))
+           (else
+            (syntax-error e))))
+   (else e)))
 
 ;;; 
 ;;; compiler
@@ -125,6 +165,8 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 ;; separate tokens; that must be added prior to pretty printing.
 (define* (lcompile env e)
   (void))
+
+;; we can run Lua as "lua -" and pipe the input via STDIN.
 
 ;;; 
 ;;; tests
@@ -148,12 +190,14 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 
 (define (test-exp w t e)
   (printfln "-- ~a (w=~a)" t w)
-  (printfln "-- ~s" e)
-  (let ((v (leval (lenv-new) e)))
-    (printfln "-- --> ~s" v)
-    (displayln (width-divider w))
-    ;;(pgf-println w d)
-    (displayln "-------------")))
+  (printfln "-- ~s [original]" e)
+  (let ((e (lrename (lenv-new) e)))
+    (printfln "-- ~s [renamed]" e)
+    (let ((v (leval (lenv-new) e)))
+      (printfln "-- --> ~s" v)
+      (displayln (width-divider w))
+      ;;(pgf-println w d)
+      (displayln "-------------"))))
 
 (define (main)
   (for ((e-rec e-lst))
