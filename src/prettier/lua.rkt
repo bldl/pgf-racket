@@ -172,6 +172,53 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 ;;; compiler
 ;;; 
 
+(define (statement? e)
+  (and (pair? e)
+       (case (car e)
+         ((begin let) #t)
+         (else #f))))
+
+(define (map/last f g lst)
+  (if (null? lst)
+      lst
+      (let ((h (car lst))
+            (t (cdr lst)))
+        (if (null? t)
+            (list (g h))
+            (cons (f h) (map/last f g t))))))
+
+(define (wreturn tr? e)
+  (if tr? `(return ,e) e))
+
+;; Inserts 'return' keywords in the appropriate places; namely the
+;; last expression of each function body must be made a return
+;; statement.
+(define (ltranslate e)
+  (define (f tr? e)
+    (cond
+     ((list? e)
+      (match e
+             ((list-rest 'begin es)
+              `(begin ,@(map/last ltranslate (fix f tr?) es)))
+             ((list-rest 'let
+                         (list (list ns es) ...)
+                         bes)
+              `(let ,(map list ns (map ltranslate es))
+                 ,@(map/last ltranslate (fix f tr?) bes)))
+             ((list-rest 'lambda (list-rest ans) bes)
+              `(lambda ,ans ,@(map/last ltranslate (fix f #t) bes)))
+             ((list-rest '+ es)
+              (wreturn tr? `(+ ,@(map ltranslate es))))
+             ((list-rest es)
+              (wreturn tr? (map ltranslate es)))
+             (else
+              (syntax-error e))))
+     ((null? e)
+      (syntax-error e))
+     (else
+      (wreturn tr? e))))
+  (f #f e))
+
 ;; This function compiles expressions in the language to Lua source
 ;; code tokens. The result can then be pretty printed and executed
 ;; using Lua, hopefully to the exactly same effect as with 'leval'.
@@ -186,6 +233,8 @@ Lisp of some kind to semantically annotated Lua source code tokens.
    ((boolean? e) (if e "true" "false"))
    ((list? e)
     (match e
+           ((list 'return e)
+            (tseq "return" (lcompile e)))
            ((list-rest 'begin es)
             (if (null? es) "nil"
                 (tseq "do" (map lcompile es) "end")))
@@ -247,7 +296,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
     (printfln "-- ~s [renamed]" e)
     (let ((v (leval (lenv-new) e)))
       (printfln "-- --> ~s" v)
-      (let ((le (lcompile e)))
+      (let ((le (lcompile (ltranslate e))))
         (displayln (width-divider w))
         (pgf-println w le)
         (displayln "-------------")))))
