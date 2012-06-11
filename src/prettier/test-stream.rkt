@@ -35,16 +35,14 @@
 (define (my-together . x)
   (UserToken
    (lambda (st tok)
-     (struct-copy FmtSt st
-                  (inDoc (tseq-append x (FmtSt-inDoc st)))))))
+     (FmtSt-cons st x))))
 
 (struct Space UserToken (s) #:transparent)
 
 (define (my-space s)
   (Space
    (lambda (st tok)
-     (struct-copy FmtSt st
-                  (inDoc (tseq-cons (union (Space-s tok) br) (FmtSt-inDoc st)))))
+     (FmtSt-cons st (Union (Space-s tok) (Line))))
    s))
 
 (define msp (my-space " "))
@@ -95,6 +93,7 @@
      ;;(cons "parenthesized special grouped" (group* (list (list (cat "(foo +" "bar)") (cat "*")) (cat "(1 -" "2 -" "3)"))))
      ;;(cons "special grouped" (group* (list (list (cat "foo +" "bar") (cat "+")) (cat "1 -" "2 -" "3"))))
      (cons "MyTogether" (tseq "111" msp (my-together "222" msp "333") msp "444"))
+     (cons "MyTogether with group/" (tseq "111" msp group/ (my-together group/ "222" msp "333" /group) /group msp "444"))
      (cons "grouped list" d4)
      (cons "nesting" d2)
      (cons "flattened" (flatten d1))

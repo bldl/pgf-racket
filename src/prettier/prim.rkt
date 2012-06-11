@@ -246,7 +246,7 @@ Calling 'flush' will cause an error if there's an incomplete grouping.
 ;; st:: current state (FmtSt)
 ;; s:: stream to prepend to inDoc (tseq)
 ;; Returns:: new state (FmtSt)
-(define (FmtSt-cons st s)
+(define* (FmtSt-cons st s)
   (let ((grp (FmtSt-grp st))
         (inDoc (FmtSt-inDoc st)))
     (if (not grp)
