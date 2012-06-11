@@ -227,6 +227,11 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 (define function (Anno '(function) "function"))
 (define return (Anno '(return) "return"))
 (define (binop x) (Anno '(binop) x))
+(define body/ (Anno/ '(body)))
+(define /body (/Anno '(body)))
+
+(define indent/ (Nest (LvInc 2)))
+(define /indent (Nest (LvPop)))
 
 (define (decide-lua pt pr tt tr)
   (cond
@@ -271,7 +276,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
            ((list-rest 'lambda (list-rest ans) bes)
             (tseq function lparen
                   (add-between (map lcompile ans) comma)
-                  rparen (map lcompile bes) "end"))
+                  rparen body/ (map lcompile bes) /body "end"))
            ((list-rest '+ es)
             (add-between (map lcompile es) (binop "+")))
            ((list-rest f args) ;; function application
