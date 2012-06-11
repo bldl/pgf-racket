@@ -96,13 +96,18 @@ ranges, HTML style.
 (define (next-token st tt)
   (struct-copy SpcSt st (pt tt) (pr (SpcSt-tr st))))
 
-;; SpcSt, Token, tseq -> SpcSt, tseq
-(define* (space-token st tt outToks)
+;; SpcSt, tseq, Token, tseq -> SpcSt, tseq, tseq
+(define* (space-token st inToks tt outToks)
   (cond
+   ((Anno? tt)
+    (let ((lst (Anno-lst tt)))
+      (values st
+              (tseq-append inToks (Anno/ lst) (Anno-m tt) (/Anno lst))
+              outToks)))
    ((Anno/? tt)
-    (values (add-annos st (Anno/-lst tt)) outToks))
+    (values (add-annos st (Anno/-lst tt)) inToks outToks))
    ((/Anno? tt)
-    (values (del-annos st (/Anno-lst tt)) outToks))
+    (values (del-annos st (/Anno-lst tt)) inToks outToks))
    (else
     (let* ((pt (SpcSt-pt st))
            (pr (SpcSt-pr st))
@@ -114,23 +119,27 @@ ranges, HTML style.
       (begin
         (cond
          ((Skip? dec)
-          (values st outToks))
+          (values st inToks outToks))
          ((Nothing? dec)
-          (values st (tseq-put outToks tt)))
+          (values st inToks (tseq-put outToks tt)))
          ((Insert? dec)
-          (values st (tseq-append outToks (Insert-tok dec) tt)))
+          (values st inToks (tseq-append outToks (Insert-tok dec) tt)))
          ((EnterSt? dec)
-          (values (enter-SpcCtx st (EnterSt-f dec)) (tseq-put outToks tt)))
+          (values (enter-SpcCtx st (EnterSt-f dec))
+                  inToks (tseq-put outToks tt)))
          ((ExitSt? dec)
-          (values (exit-SpcCtx st) (tseq-put outToks tt)))
+          (values (exit-SpcCtx st) inToks (tseq-put outToks tt)))
          (else
           (error "space-token: unsupported decision" dec))))))))
 
 ;; SpcSt, tseq, tseq -> SpcSt, tseq
 (define* (space-tokens st inToks (outToks empty-tseq))
-  (for ((tt (in-tseq inToks)))
-       (set!-values (st outToks) (space-token st tt outToks)))
-  (values st outToks))
+  (let-values (((h t) (tseq-get inToks)))
+    (if (not h)
+        (values st outToks)
+        (let-values (((st inToks outToks)
+                      (space-token st t h outToks)))
+          (space-tokens st inToks outToks)))))
 
 (define* (printlnTokenStream toks)
   (for ((t (in-tseq toks)))

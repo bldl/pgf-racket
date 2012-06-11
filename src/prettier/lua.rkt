@@ -10,6 +10,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 
 (require "prim.rkt")
 (require "token.rkt")
+(require "spacer.rkt")
 (require "util.rkt")
 
 (define syntax-error
