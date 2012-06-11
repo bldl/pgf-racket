@@ -8,6 +8,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 
 |#
 
+(require "hl.rkt")
 (require "prim.rkt")
 (require "token.rkt")
 (require "spacer.rkt")
@@ -220,6 +221,24 @@ Lisp of some kind to semantically annotated Lua source code tokens.
       (wreturn tr? e))))
   (f #f e))
 
+(define lparen (Anno '(lparen) "("))
+(define rparen (Anno '(rparen) ")"))
+(define comma (Anno '(comma) ","))
+(define function (Anno '(function) "function"))
+(define return (Anno '(return) "return"))
+(define (binop x) (Anno '(binop) x))
+
+(define (decide-lua pt pr tt tr)
+  (cond
+   ((memq 'comma pr) (Insert sp))
+   ((memq 'binop pr) (Insert sp))
+   ((memq 'binop tr) (Insert nbsp))
+   ((memq 'function pr) (Insert sp))
+   ((memq 'return pr) (Insert sp))
+   ((memq 'lparen pr) (Insert align/))
+   ((memq 'rparen tr) (Insert /align))
+   (else (Nothing))))
+
 ;; This function compiles expressions in the language to Lua source
 ;; code tokens. The result can then be pretty printed and executed
 ;; using Lua, hopefully to the exactly same effect as with 'leval'.
@@ -235,7 +254,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
    ((list? e)
     (match e
            ((list 'return e)
-            (tseq "return" (lcompile e)))
+            (tseq return (lcompile e)))
            ((list-rest 'begin es)
             (if (null? es) "nil"
                 (tseq "do" (map lcompile es) "end")))
@@ -246,23 +265,23 @@ Lisp of some kind to semantically annotated Lua source code tokens.
             ;; are unique there is little need for such clutter.
             (tseq (map
                    (lambda (n e)
-                     (tseq "local" (lcompile n) "=" (lcompile e)))
+                     (tseq "local" (lcompile n) (binop "=") (lcompile e)))
                    ns es)
                   (map lcompile bes)))
            ((list-rest 'lambda (list-rest ans) bes)
-            (tseq "function" "("
-                  (add-between (map lcompile ans) ",")
-                  ")" (map lcompile bes) "end"))
+            (tseq function lparen
+                  (add-between (map lcompile ans) comma)
+                  rparen (map lcompile bes) "end"))
            ((list-rest '+ es)
-            (add-between (map lcompile es) "+"))
+            (add-between (map lcompile es) (binop "+")))
            ((list-rest f args) ;; function application
             (tseq
              (if (symbol? f)
                  (symbol->string f)
-                 (tseq "(" (lcompile f) ")"))
-             "(" (add-between
+                 (tseq lparen (lcompile f) rparen))
+             lparen (add-between
                   (map lcompile args)
-                  ",") ")"))
+                  comma) rparen))
            (else
             (syntax-error e))))
    (else (syntax-error e))))
@@ -290,6 +309,11 @@ Lisp of some kind to semantically annotated Lua source code tokens.
    '("lambda application (multiple args)" (80) ((lambda (x y z) (+ x y z)) 1 2 3))
    ))
 
+(define (lspace s)
+  (let-values (((st outToks) 
+                (space-tokens (new-SpcSt decide-lua) s)))
+    outToks))
+
 (define (test-exp w t e)
   (printfln "-- ~a (w=~a)" t w)
   (printfln "-- ~s [original]" e)
@@ -298,8 +322,9 @@ Lisp of some kind to semantically annotated Lua source code tokens.
     (let ((v (leval (lenv-new) e)))
       (printfln "-- --> ~s" v)
       (let ((le (lcompile (ltranslate e))))
+        (print-spacedln le)
         (displayln (width-divider w))
-        (pgf-println w le)
+        (pgf-println w (lspace le))
         (displayln "-------------")))))
 
 (define (main)

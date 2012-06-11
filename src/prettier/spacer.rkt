@@ -102,7 +102,7 @@ ranges, HTML style.
    ((Anno? tt)
     (let ((lst (Anno-lst tt)))
       (values st
-              (tseq-append inToks (Anno/ lst) (Anno-m tt) (/Anno lst))
+              (tseq-append (Anno/ lst) (Anno-m tt) (/Anno lst) inToks)
               outToks)))
    ((Anno/? tt)
     (values (add-annos st (Anno/-lst tt)) inToks outToks))
@@ -141,12 +141,15 @@ ranges, HTML style.
                       (space-token st t h outToks)))
           (space-tokens st inToks outToks)))))
 
-(define* (printlnTokenStream toks)
+(define* (print-spaced toks)
   (for ((t (in-tseq toks)))
       (match t
         ((Union (Text " ") (Line)) (display "_"))
         ((Text " ") (display "~"))
         ((Text s) (display (format "[~a]" s)))
         ((Line) (display " "))
-        (else (display (format " ~s " t)))))
-  (newline))
+        ((Anno _ m) (print-spaced m))
+        (else (display (format " ~s " t))))))
+
+(define* (print-spacedln toks)
+  (print-spaced toks) (newline))
