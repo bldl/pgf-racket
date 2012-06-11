@@ -33,6 +33,7 @@ ranges, HTML style.
                  (ExitSt) ;; -> Decision
                  (Nothing) ;; -> Decision
                  (Skip) ;; -> Decision
+                 (Sequence lst) ;; list of Decision -> Decision
                  ))
 
 (define sp (Union (Text " ") (Line)))
@@ -96,6 +97,30 @@ ranges, HTML style.
 (define (next-token st tt)
   (struct-copy SpcSt st (pt tt) (pr (SpcSt-tr st))))
 
+(define (apply-dec st tt outToks dec)
+  (let ((skip? #f))
+    (let next ((decs (list dec)))
+      (if (null? decs)
+          (values st (if skip? outToks (tseq-put outToks tt)))
+          (let ((dec (car decs))
+                (decs (cdr decs)))
+            (cond
+             ((Skip? dec)
+              (set! skip? #t))
+             ((Nothing? dec)
+              (void))
+             ((Insert? dec)
+              (set! outToks (tseq-put outToks (Insert-tok dec))))
+             ((EnterSt? dec)
+              (set! st (enter-SpcCtx st (EnterSt-f dec))))
+             ((ExitSt? dec)
+              (set! st (exit-SpcCtx st)))
+             ((Sequence? dec)
+              (set! decs (append (Sequence-lst dec) decs)))
+             (else
+              (error "space-token: unsupported decision" dec)))
+            (next decs))))))
+
 ;; SpcSt, tseq, Token, tseq -> SpcSt, tseq, tseq
 (define* (space-token st inToks tt outToks)
   (cond
@@ -116,21 +141,9 @@ ranges, HTML style.
            (f (SpcCtx-f ctx))
            (dec (f pt pr tt tr))
            (st (next-token st tt)))
-      (begin
-        (cond
-         ((Skip? dec)
-          (values st inToks outToks))
-         ((Nothing? dec)
-          (values st inToks (tseq-put outToks tt)))
-         ((Insert? dec)
-          (values st inToks (tseq-append outToks (Insert-tok dec) tt)))
-         ((EnterSt? dec)
-          (values (enter-SpcCtx st (EnterSt-f dec))
-                  inToks (tseq-put outToks tt)))
-         ((ExitSt? dec)
-          (values (exit-SpcCtx st) inToks (tseq-put outToks tt)))
-         (else
-          (error "space-token: unsupported decision" dec))))))))
+      (let-values (((st outToks)
+                    (apply-dec st tt outToks dec)))
+        (values st inToks outToks))))))
 
 ;; SpcSt, tseq, tseq -> SpcSt, tseq
 (define* (space-tokens st inToks (outToks empty-tseq))
