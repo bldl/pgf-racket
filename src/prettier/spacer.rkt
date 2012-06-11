@@ -35,6 +35,8 @@ ranges, HTML style.
                  (Skip) ;; -> Decision
                  ))
 
+(define sp (Union (Text " ") (Line)))
+
 ;; pt:: previous token (Token)
 ;; pr:: previous range (list of symbol)
 ;; tt:: this token (Token)
@@ -43,32 +45,25 @@ ranges, HTML style.
   (Nothing))
 
 (define* (always-Space pt pr tt tr)
-  (if pt (Insert (Space " " 1)) (Nothing)))
+  (if pt (Insert sp) (Nothing)))
 
+;; function? -> SpcSt
 (define* (new-SpcSt (f decide-Nothing))
   (SpcSt (SpcCtx #f f) '() #f '()))
 
-(define (enter-SpcCtx! st f)
+;; SpcSt, function -> SpcSt
+(define (enter-SpcCtx st f)
   (let ((ctx (SpcSt-ctx st)))
-    (set-SpcSt-ctx! st (SpcCtx ctx f)))
-  st)
+    (struct-copy SpcSt st (ctx (SpcCtx ctx f)))))
 
-(define (exit-SpcCtx! st)
+;; SpcSt -> SpcSt
+(define (exit-SpcCtx st)
   (let ((ctx (SpcCtx-backCtx st)))
     (unless ctx
-      (error "exit-SpcCtx!: exiting from last SpcCtx"))
-    (set-SpcSt-ctx! st ctx)
-    st))
+      (error "exit-SpcCtx: exiting from last SpcCtx"))
+    (struct-copy SpcSt st (ctx ctx))))
 
-(define (stream-put s t)
-  ;; Better avoid set! here as 'stream' is a lazy construct.
-  (let ((t 
-         (if (Space? t)
-             (Union (stream (Text (Space-s t)))
-                    (stream (Line))
-                    (Space-sh t)) t)))
-    (stream-append s (stream t))))
-
+;; Like remq, but errors out if the value 'v' does not exist.
 (define (remq/error v lst)
   (if (null? lst)
       (error "close annotation without open" v lst)
@@ -78,61 +73,70 @@ ranges, HTML style.
             t
             (cons h (remq/error v t))))))
 
-(define (add-annos! st lst)
-  (set-SpcSt-tr! st (append lst (SpcSt-tr st))))
+;; Like remq*, but errors out if any of the values in 'v-lst' do not
+;; exist.
+(define (remq/error* v-lst lst)
+  (if (null? v-lst)
+      lst
+      (let ((h (car v-lst))
+            (t (cdr v-lst)))
+        (remq/error* t (remq/error h lst)))))
 
-(define (del-annos! st lst)
-  (let ((annos (SpcSt-tr st)))
-    (for ((a lst))
-         (set! annos (remq/error a annos)))
-    (set-SpcSt-tr! st annos)))
+;; SpcSt, list -> SpcSt
+(define (add-annos st lst)
+  (let ((old (SpcSt-tr st)))
+    (struct-copy SpcSt st (tr (append lst old)))))
 
-(define (next-token! st tt)
-  (set-SpcSt-pt! st tt)
-  (set-SpcSt-pr! st (SpcSt-tr st))
-  st)
+;; SpcSt, list -> SpcSt
+(define (del-annos st lst)
+  (let ((old (SpcSt-tr st)))
+    (struct-copy SpcSt st (tr (remq/error* lst old)))))
 
-;; SpcSt, Token, stream -> SpcSt, stream
-(define* (process-token! st tt outToks)
+;; SpcSt, Token -> SpcSt
+(define (next-token st tt)
+  (struct-copy SpcSt st (pt tt) (pr (SpcSt-tr st))))
+
+;; SpcSt, Token, tseq -> SpcSt, tseq
+(define* (space-token st tt outToks)
   (cond
-   ((Anno? tt)
-    (values (add-annos! st (Anno-lst tt)) outToks))
+   ((Anno/? tt)
+    (values (add-annos st (Anno/-lst tt)) outToks))
    ((/Anno? tt)
-    (values (del-annos! st (Anno-lst tt)) outToks))
+    (values (del-annos st (/Anno-lst tt)) outToks))
    (else
     (let* ((pt (SpcSt-pt st))
            (pr (SpcSt-pr st))
            (tr (SpcSt-tr st))
            (ctx (SpcSt-ctx st))
            (f (SpcCtx-f ctx))
-           (dec (f pt pr tt tr)))
-      (next-token! st tt)
-      (if (Skip? dec)
-          (values st outToks)
-          (begin
-            (cond
-             ((Nothing? dec)
-              (void))
-             ((Insert? dec)
-              (set! outToks (stream-put outToks (Insert-tok dec))))
-             ((EnterSt? dec)
-              (set! st (enter-SpcCtx! st (EnterSt-f dec))))
-             ((ExitSt? dec)
-              (set! st (exit-SpcCtx! st)))
-             (else
-              (error "process-token!: unsupported decision" dec)))
-            (values st (stream-put outToks tt))))))))
+           (dec (f pt pr tt tr))
+           (st (next-token st tt)))
+      (begin
+        (cond
+         ((Skip? dec)
+          (values st outToks))
+         ((Nothing? dec)
+          (values st (tseq-put outToks tt)))
+         ((Insert? dec)
+          (values st (tseq-append outToks (Insert-tok dec) tt)))
+         ((EnterSt? dec)
+          (values (enter-SpcCtx st (EnterSt-f dec)) (tseq-put outToks tt)))
+         ((ExitSt? dec)
+          (values (exit-SpcCtx st) (tseq-put outToks tt)))
+         (else
+          (error "space-token: unsupported decision" dec))))))))
 
-;; SpcSt, sequence, stream -> SpcSt, stream
-(define* (process-tokens! st inToks (outToks empty-stream))
-  (for ((tt inToks))
-       (set!-values (st outToks) (process-token! st tt outToks)))
+;; SpcSt, tseq, tseq -> SpcSt, tseq
+(define* (space-tokens st inToks (outToks empty-tseq))
+  (for ((tt (in-tseq inToks)))
+       (set!-values (st outToks) (space-token st tt outToks)))
   (values st outToks))
 
 (define* (printlnTokenStream toks)
-  (for ((t (in-stream toks)))
+  (for ((t (in-tseq toks)))
       (match t
-        ((Text " ") (display "_"))
+        ((Union (Text " ") (Line)) (display "_"))
+        ((Text " ") (display "~"))
         ((Text s) (display (format "[~a]" s)))
         ((Line) (display " "))
         (else (display (format " ~s " t)))))

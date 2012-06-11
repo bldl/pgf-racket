@@ -24,8 +24,8 @@ Tokens and token sequences/streams.
 
 ;; FmtEngine supports Nest, Text, Line, Union, and Width.
 ;;
-;; Spacer supports Space, Anno, and /Anno tokens, dropping them or
-;; translating them into something else. Otherwise it is token
+;; Spacer supports Space, Anno, Anno/ and /Anno tokens, dropping them
+;; or translating them into something else. Otherwise it is token
 ;; agnostic.
 (data/expose* Token ((Nest lv) ;; Lv -> Token
                      (Text s) ;; string -> Token
@@ -36,7 +36,8 @@ Tokens and token sequences/streams.
                      ;;(Space s sh) ;; string, rational -> Token
                      (Together m) ;; stream -> Token
                      (SpaceT s) ;; string -> Token
-                     (Anno lst) ;; list of symbol -> Token
+                     (Anno lst t) ;; list of symbol, Token -> Token
+                     (Anno/ lst) ;; list of symbol -> Token
                      (/Anno lst) ;; list of symbol -> Token
                      ))
 
