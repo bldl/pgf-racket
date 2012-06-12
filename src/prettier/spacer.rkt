@@ -39,10 +39,11 @@ ranges, HTML style.
   (decider (pt pr tt tr yield) body ...)
   (lambda (pt pr tt tr)
     (let* ((lst '())
-           (yield (lambda (dec)
-                    (set! lst (cons dec lst)))))
+           (yield (lambda decs
+                    (set! lst (append lst decs)))))
       body ...
-      (reverse lst))))
+      (writeln (list 'decisions lst))
+      lst)))
 
 (define sp (Union (Text " ") (Line)))
 
@@ -160,6 +161,7 @@ ranges, HTML style.
         (values st outToks)
         (let-values (((st inToks outToks)
                       (space-token st t h outToks)))
+          (writeln (list 'in inToks))
           (space-tokens st inToks outToks)))))
 
 (define* (print-spaced toks)

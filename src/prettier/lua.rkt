@@ -224,9 +224,12 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 (define lparen (Anno '(lparen) "("))
 (define rparen (Anno '(rparen) ")"))
 (define comma (Anno '(comma) ","))
-(define function (Anno '(function) "function"))
-(define return (Anno '(return) "return"))
+(define local-kw (Anno '(local-kw) "local"))
+(define function-kw (Anno '(function-kw) "function"))
+(define return-kw (Anno '(return-kw) "return"))
 (define (binop x) (Anno '(binop) x))
+(define function/ (Anno/ '(function)))
+(define /function (/Anno '(function)))
 (define body/ (Anno/ '(body)))
 (define /body (/Anno '(body)))
 
@@ -236,15 +239,28 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 (define decide-lua
   (decider
    (pt pr tt tr yield)
-   (cond
-    ((memq 'comma pr) (yield (Insert sp)))
-    ((memq 'binop pr) (yield (Insert sp)))
-    ((memq 'binop tr) (yield (Insert nbsp)))
-    ((memq 'function pr) (yield (Insert sp)))
-    ((memq 'return pr) (yield (Insert sp)))
-    ((memq 'lparen pr) (yield (Insert align/)))
-    ((memq 'rparen tr) (yield (Insert /align))))
-   ))
+   (begin
+     (cond
+      ((and (not (memq 'body pr)) (memq 'body tr))
+       (yield (Insert indent/) (Insert br)))
+      ((and (memq 'body pr) (not (memq 'body tr)))
+       (yield (Insert /indent) (Insert br))))
+     (cond
+      ((and (not (memq 'function pr)) (memq 'function tr))
+       (yield (Insert group/)))
+      ((and (memq 'function pr) (not (memq 'function tr)))
+       (yield (Insert /group))))
+     (cond
+      ((memq 'comma pr) (yield (Insert sp)))
+      ((memq 'binop pr) (yield (Insert sp)))
+      ((memq 'local-kw pr) (yield (Insert sp)))
+      ((memq 'function-kw pr) (yield (Insert sp)))
+      ((memq 'return-kw pr) (yield (Insert sp)))
+      ((memq 'lparen pr) (yield (Insert align/))))
+     (cond
+      ((memq 'binop tr) (yield (Insert nbsp)))
+      ((memq 'rparen tr) (yield (Insert /align))))
+     )))
 
 ;; This function compiles expressions in the language to Lua source
 ;; code tokens. The result can then be pretty printed and executed
@@ -261,7 +277,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
    ((list? e)
     (match e
            ((list 'return e)
-            (tseq return (lcompile e)))
+            (tseq return-kw (lcompile e)))
            ((list-rest 'begin es)
             (if (null? es) "nil"
                 (tseq "do" (map lcompile es) "end")))
@@ -272,13 +288,14 @@ Lisp of some kind to semantically annotated Lua source code tokens.
             ;; are unique there is little need for such clutter.
             (tseq (map
                    (lambda (n e)
-                     (tseq "local" (lcompile n) (binop "=") (lcompile e)))
+                     (tseq local-kw (lcompile n) (binop "=") (lcompile e)))
                    ns es)
                   (map lcompile bes)))
            ((list-rest 'lambda (list-rest ans) bes)
-            (tseq function lparen
+            (tseq function/ function-kw lparen
                   (add-between (map lcompile ans) comma)
-                  rparen body/ (map lcompile bes) /body "end"))
+                  rparen body/ (map lcompile bes) /body
+                  "end" /function))
            ((list-rest '+ es)
             (add-between (map lcompile es) (binop "+")))
            ((list-rest f args) ;; function application
