@@ -28,13 +28,21 @@ ranges, HTML style.
           )
          #:transparent)
 
+;; #f or list of Decision are also valid decisions.
 (data* Decision ((Insert tok) ;; Token -> Decision
                  (EnterSt f) ;; function -> Decision
                  (ExitSt) ;; -> Decision
-                 (Nothing) ;; -> Decision
                  (Skip) ;; -> Decision
-                 (Sequence lst) ;; list of Decision -> Decision
                  ))
+
+(define-syntax-rule*
+  (decider (pt pr tt tr yield) body ...)
+  (lambda (pt pr tt tr)
+    (let* ((lst '())
+           (yield (lambda (dec)
+                    (set! lst (cons dec lst)))))
+      body ...
+      (reverse lst))))
 
 (define sp (Union (Text " ") (Line)))
 
@@ -42,14 +50,14 @@ ranges, HTML style.
 ;; pr:: previous range (list of symbol)
 ;; tt:: this token (Token)
 ;; tr:: this range (list of symbol)
-(define* (decide-Nothing pt pr tt tr)
-  (Nothing))
+(define* (decide-nothing pt pr tt tr)
+  #f)
 
 (define* (always-Space pt pr tt tr)
-  (if pt (Insert sp) (Nothing)))
+  (if pt (Insert sp) #f))
 
 ;; function? -> SpcSt
-(define* (new-SpcSt (f decide-Nothing))
+(define* (new-SpcSt (f decide-nothing))
   (SpcSt (SpcCtx #f f) '() #f '()))
 
 ;; SpcSt, function -> SpcSt
@@ -105,18 +113,18 @@ ranges, HTML style.
           (let ((dec (car decs))
                 (decs (cdr decs)))
             (cond
+             ((or #f (null? dec))
+              (void))
+             ((list? dec)
+              (set! decs (append dec decs)))
              ((Skip? dec)
               (set! skip? #t))
-             ((Nothing? dec)
-              (void))
              ((Insert? dec)
               (set! outToks (tseq-put outToks (Insert-tok dec))))
              ((EnterSt? dec)
               (set! st (enter-SpcCtx st (EnterSt-f dec))))
              ((ExitSt? dec)
               (set! st (exit-SpcCtx st)))
-             ((Sequence? dec)
-              (set! decs (append (Sequence-lst dec) decs)))
              (else
               (error "space-token: unsupported decision" dec)))
             (next decs))))))

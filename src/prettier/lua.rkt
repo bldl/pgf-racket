@@ -233,16 +233,18 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 (define indent/ (Nest (LvInc 2)))
 (define /indent (Nest (LvPop)))
 
-(define (decide-lua pt pr tt tr)
-  (cond
-   ((memq 'comma pr) (Insert sp))
-   ((memq 'binop pr) (Insert sp))
-   ((memq 'binop tr) (Insert nbsp))
-   ((memq 'function pr) (Insert sp))
-   ((memq 'return pr) (Insert sp))
-   ((memq 'lparen pr) (Insert align/))
-   ((memq 'rparen tr) (Insert /align))
-   (else (Nothing))))
+(define decide-lua
+  (decider
+   (pt pr tt tr yield)
+   (cond
+    ((memq 'comma pr) (yield (Insert sp)))
+    ((memq 'binop pr) (yield (Insert sp)))
+    ((memq 'binop tr) (yield (Insert nbsp)))
+    ((memq 'function pr) (yield (Insert sp)))
+    ((memq 'return pr) (yield (Insert sp)))
+    ((memq 'lparen pr) (yield (Insert align/)))
+    ((memq 'rparen tr) (yield (Insert /align))))
+   ))
 
 ;; This function compiles expressions in the language to Lua source
 ;; code tokens. The result can then be pretty printed and executed
