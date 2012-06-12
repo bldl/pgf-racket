@@ -228,10 +228,10 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 (define function-kw (Anno '(function-kw) "function"))
 (define return-kw (Anno '(return-kw) "return"))
 (define (binop x) (Anno '(binop) x))
-(define function/ (Anno/ '(function)))
-(define /function (/Anno '(function)))
-(define body/ (Anno/ '(body)))
-(define /body (/Anno '(body)))
+(define function/ (Anno '(function/) ""))
+(define /function (Anno '(/function) ""))
+(define body/ (Anno '(body/) ""))
+(define /body (Anno '(/body) ""))
 
 (define indent/ (Nest (LvInc 2)))
 (define /indent (Nest (LvPop)))
@@ -241,16 +241,6 @@ Lisp of some kind to semantically annotated Lua source code tokens.
    (pt pr tt tr yield)
    (begin
      (cond
-      ((and (not (memq 'body pr)) (memq 'body tr))
-       (yield (Insert indent/) (Insert br)))
-      ((and (memq 'body pr) (not (memq 'body tr)))
-       (yield (Insert /indent) (Insert br))))
-     (cond
-      ((and (not (memq 'function pr)) (memq 'function tr))
-       (yield (Insert group/)))
-      ((and (memq 'function pr) (not (memq 'function tr)))
-       (yield (Insert /group))))
-     (cond
       ((memq 'comma pr) (yield (Insert sp)))
       ((memq 'binop pr) (yield (Insert sp)))
       ((memq 'local-kw pr) (yield (Insert sp)))
@@ -259,7 +249,11 @@ Lisp of some kind to semantically annotated Lua source code tokens.
       ((memq 'lparen pr) (yield (Insert align/))))
      (cond
       ((memq 'binop tr) (yield (Insert nbsp)))
-      ((memq 'rparen tr) (yield (Insert /align))))
+      ((memq 'rparen tr) (yield (Insert /align)))
+      ((memq 'function/ tr) (yield (Insert group/) (Skip)))
+      ((memq '/function tr) (yield (Insert /group) (Skip)))
+      ((memq 'body/ tr) (yield (Insert indent/) (Insert br) (Skip)))
+      ((memq '/body tr) (yield (Insert /indent) (Insert br) (Skip))))
      )))
 
 ;; This function compiles expressions in the language to Lua source
@@ -330,7 +324,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
    '("nested let" (80) (let ((x 1)) (let ((x x)) x)))
    '("let over lambda" (80) (let ((f (lambda () 555))) (f)))
    '("let over lambda (identity)" (80) (let ((f (lambda (x) x))) (f 666)))
-   '("lambda application (multiple args)" (80) ((lambda (x y z) (+ x y z)) 1 2 3))
+   '("lambda application (multiple args)" (80 40) ((lambda (x y z) (+ x y z)) 1 2 3))
    ))
 
 (define (lspace s)
