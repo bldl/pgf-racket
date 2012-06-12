@@ -114,7 +114,7 @@ ranges, HTML style.
           (let ((dec (car decs))
                 (decs (cdr decs)))
             (cond
-             ((or #f (null? dec))
+             ((or (not dec) (null? dec))
               (void))
              ((list? dec)
               (set! decs (append dec decs)))

@@ -232,6 +232,8 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 (define /function (Anno '(/function) ""))
 (define body/ (Anno '(body/) ""))
 (define /body (Anno '(/body) ""))
+(define stmt/ (Anno '(stmt/) ""))
+(define /stmt (Anno '(/stmt) ""))
 
 (define indent/ (Nest (LvInc 2)))
 (define /indent (Nest (LvPop)))
@@ -253,8 +255,15 @@ Lisp of some kind to semantically annotated Lua source code tokens.
       ((memq 'function/ tr) (yield (Insert group/) (Skip)))
       ((memq '/function tr) (yield (Insert /group) (Skip)))
       ((memq 'body/ tr) (yield (Insert indent/) (Insert br) (Skip)))
-      ((memq '/body tr) (yield (Insert /indent) (Insert br) (Skip))))
+      ((memq '/body tr) (yield (Insert /indent) (Insert br) (Skip)))
+      ((memq '/stmt tr) (yield (Insert ";") (Skip)))
+      ((memq 'stmt/ tr) (yield (and (memq '/stmt pr) (Insert (Line))) (Skip))))
      )))
+
+(define (map-stmt f lst)
+  (map
+   (lambda (x) (tseq stmt/ (f x) /stmt))
+   lst))
 
 ;; This function compiles expressions in the language to Lua source
 ;; code tokens. The result can then be pretty printed and executed
@@ -274,7 +283,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
             (tseq return-kw (lcompile e)))
            ((list-rest 'begin es)
             (if (null? es) "nil"
-                (tseq "do" (map lcompile es) "end")))
+                (tseq "do" (map-stmt lcompile es) "end")))
            ((list-rest 'let
                        (list (list ns es) ...)
                        bes)
@@ -282,9 +291,10 @@ Lisp of some kind to semantically annotated Lua source code tokens.
             ;; are unique there is little need for such clutter.
             (tseq (map
                    (lambda (n e)
-                     (tseq local-kw (lcompile n) (binop "=") (lcompile e)))
+                     (tseq stmt/ local-kw (lcompile n)
+                           (binop "=") (lcompile e) /stmt))
                    ns es)
-                  (map lcompile bes)))
+                  (map-stmt lcompile bes)))
            ((list-rest 'lambda (list-rest ans) bes)
             (tseq function/ function-kw lparen
                   (add-between (map lcompile ans) comma)
