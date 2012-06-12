@@ -228,8 +228,8 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 (define function-kw (Anno '(function-kw) "function"))
 (define return-kw (Anno '(return-kw) "return"))
 (define (binop x) (Anno '(binop) x))
-(define function/ (Anno '(function/) ""))
-(define /function (Anno '(/function) ""))
+(define block/ (Anno '(block/) ""))
+(define /block (Anno '(/block) ""))
 (define body/ (Anno '(body/) ""))
 (define /body (Anno '(/body) ""))
 (define stmt/ (Anno '(stmt/) ""))
@@ -252,8 +252,8 @@ Lisp of some kind to semantically annotated Lua source code tokens.
      (cond
       ((memq 'binop tr) (yield (Insert nbsp)))
       ((memq 'rparen tr) (yield (Insert /align)))
-      ((memq 'function/ tr) (yield (Insert group/) (Skip)))
-      ((memq '/function tr) (yield (Insert /group) (Skip)))
+      ((memq 'block/ tr) (yield (Insert group/) (Skip)))
+      ((memq '/block tr) (yield (Insert /group) (Skip)))
       ((memq 'body/ tr) (yield (Insert indent/) (Insert br) (Skip)))
       ((memq '/body tr) (yield (Insert /indent) (Insert br) (Skip)))
       ((memq '/stmt tr) (yield (Insert ";") (Skip)))
@@ -282,24 +282,29 @@ Lisp of some kind to semantically annotated Lua source code tokens.
            ((list 'return e)
             (tseq return-kw (lcompile e)))
            ((list-rest 'begin es)
+            ;; xxx optimize away nil case earlier
+            ;; xxx empty statement is actually ";"
             (if (null? es) "nil"
-                (tseq "do" (map-stmt lcompile es) "end")))
+                (tseq block/ "do" body/
+                      (map-stmt lcompile es)
+                      /body "end" /block)))
            ((list-rest 'let
                        (list (list ns es) ...)
                        bes)
-            ;; We could enclose these in a block, but since the names
-            ;; are unique there is little need for such clutter.
-            (tseq (map
+            ;; xxx optimize empty cases before here
+            (tseq block/ "do" body/
+                  (map
                    (lambda (n e)
                      (tseq stmt/ local-kw (lcompile n)
                            (binop "=") (lcompile e) /stmt))
                    ns es)
-                  (map-stmt lcompile bes)))
+                  (map-stmt lcompile bes)
+                  /body "end" /block))
            ((list-rest 'lambda (list-rest ans) bes)
-            (tseq function/ function-kw lparen
+            (tseq block/ function-kw lparen
                   (add-between (map lcompile ans) comma)
                   rparen body/ (map lcompile bes) /body
-                  "end" /function))
+                  "end" /block))
            ((list-rest '+ es)
             (add-between (map lcompile es) (binop "+")))
            ((list-rest f args) ;; function application
@@ -327,6 +332,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
    '("boolean literal" (80) #t)
    '("empty begin" (80) (begin))
    '("short begin" (80) (begin 555))
+   '("long begin" (40) (begin 1 2 3 (let ((x 1)) x) (+ 1 2 3)))
    '("empty let" (80) (let () 1))
    '("lambda" (80) (lambda () 555))
    '("lambda application" (80) ((lambda () 555)))
