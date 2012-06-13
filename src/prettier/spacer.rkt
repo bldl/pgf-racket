@@ -110,7 +110,7 @@ ranges, HTML style.
   (let ((skip? #f))
     (let next ((decs (list dec)))
       (if (null? decs)
-          (values st (if skip? outToks (tseq-put outToks tt)))
+          (values st (if (or skip? (Nil? tt)) outToks (tseq-put outToks tt)))
           (let ((dec (car decs))
                 (decs (cdr decs)))
             (cond
@@ -171,7 +171,9 @@ ranges, HTML style.
         ((Text " ") (display "~"))
         ((Text s) (display (format "[~a]" s)))
         ((Line) (display " "))
+        ((Anno a (Nil)) (display a))
         ((Anno _ m) (print-spaced m))
+        ((Nil) (void))
         (else (display (format " ~s " t))))))
 
 (define* (print-spacedln toks)

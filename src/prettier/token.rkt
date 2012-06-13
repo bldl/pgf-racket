@@ -36,6 +36,7 @@ Tokens and token sequences/streams.
                      ;;(Space s sh) ;; string, rational -> Token
                      (Together m) ;; stream -> Token
                      (SpaceT s) ;; string -> Token
+                     (Nil) ;; -> Token
                      (Anno lst m) ;; list of symbol, tseq -> Token
                      (Anno/ lst) ;; list of symbol -> Token
                      (/Anno lst) ;; list of symbol -> Token
