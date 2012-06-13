@@ -7,7 +7,6 @@ testing the token pipeline. What it does is translate a very small
 Lisp of some kind to semantically annotated Lua source code tokens.
 
 TODO:
-- parenthesize arithmetic (probably before printing, and with dedicated ast node)
 - prettify arithmetic, as per paper? -- can we do this with spacer?
 
 |#
@@ -183,11 +182,21 @@ TODO:
 ;;; compiler
 ;;; 
 
-(define (statement? e)
-  (and (pair? e)
-       (case (car e)
-         ((begin let) #t)
-         (else #f))))
+(define (lparenthesize e)
+  (define (f ctx e)
+    (cond
+     ((pair? e)
+      (match e
+        ((list-rest '+ es)
+         (let ((sub `(+ ,@(map (fix f '+) es))))
+           (if (eq? ctx '*)
+               `(parens ,sub) sub)))
+        ((list-rest '* es)
+         `(* ,@(map (fix f '*) es)))
+        (else
+         (map lparenthesize e))))
+     (else e)))
+  (f #f e))
 
 (define (map/last f g lst)
   (if (null? lst)
@@ -320,6 +329,8 @@ TODO:
             (add-between (map ltokenize es) (binop "+")))
            ((list-rest '* es)
             (add-between (map ltokenize es) (binop "*")))
+           ((list 'parens e)
+            (tseq "(" (ltokenize e) ")"))
            ((list-rest f args) ;; function application
             (tseq
              (if (symbol? f)
@@ -332,7 +343,7 @@ TODO:
             (syntax-error e))))
    (else (syntax-error e))))
 
-(define lcompile (compose ltokenize lreturnize))
+(define lcompile (compose ltokenize lparenthesize lreturnize))
 
 ;; we can run Lua as "lua -" and pipe the input via STDIN.
 
@@ -350,6 +361,7 @@ TODO:
    '("long begin" (40) (begin 1 2 3 (let ((x 1)) x) (+ 1 2 3)))
    '("empty let" (80) (let () 1))
    '("arithmetic" (80) (* (+ 1 2) (+ 3 4)))
+   '("big arithmetic" (80) (* (+ 1 2 (+ 3 4) 5) (+ (* 6 7) 8)))
    '("lambda" (80) (lambda () 555))
    '("lambda application" (80) ((lambda () 555)))
    '("simple let" (80) (let ((x 1)) x))
