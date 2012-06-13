@@ -6,6 +6,10 @@ The purpose of this module is to produce meaningful test data for
 testing the token pipeline. What it does is translate a very small
 Lisp of some kind to semantically annotated Lua source code tokens.
 
+TODO:
+- parenthesize arithmetic (probably before printing, and with dedicated ast node)
+- prettify arithmetic, as per paper? -- can we do this with spacer?
+
 |#
 
 (require "hl.rkt")
@@ -93,6 +97,13 @@ Lisp of some kind to semantically annotated Lua source code tokens.
 ;;; evaluator
 ;;; 
 
+(define (eval-binop op env es e)
+  (let ((vs (map (fix leval env) es)))
+    (for ((v vs))
+        (unless (number? v)
+          (type-error "expected number" v e)))
+    (apply op vs)))
+
 ;; This function evaluates expressions in the language directly,
 ;; without going through Lua.
 (define* (leval env e)
@@ -116,12 +127,8 @@ Lisp of some kind to semantically annotated Lua source code tokens.
               (leval benv `(begin ,@bes))))
            ((list-rest 'lambda (list-rest ans) bes)
             (Func (ck-idents ans) env `(begin ,@bes)))
-           ((list-rest '+ es)
-            (let ((vs (map (fix leval env) es)))
-              (for ((v vs))
-                   (unless (number? v)
-                     (type-error "expected number" v e)))
-              (apply + vs)))
+           ((list-rest '+ es) (eval-binop + env es e))
+           ((list-rest '* es) (eval-binop * env es e))
            ((list-rest f args) ;; function application
             (lapply env f args))
            (else
@@ -164,6 +171,8 @@ Lisp of some kind to semantically annotated Lua source code tokens.
               `(lambda ,ns ,@(map (fix lrename env) bes))))
            ((list-rest '+ es)
             `(+ ,@(map (fix lrename env) es)))
+           ((list-rest '* es)
+            `(* ,@(map (fix lrename env) es)))
            ((list-rest es) ;; function application
             (map (fix lrename env) es))
            (else
@@ -211,6 +220,8 @@ Lisp of some kind to semantically annotated Lua source code tokens.
               `(lambda ,ans ,@(map/last ltranslate (fix f #t) bes)))
              ((list-rest '+ es)
               (wreturn tr? `(+ ,@(map ltranslate es))))
+             ((list-rest '* es)
+              (wreturn tr? `(* ,@(map ltranslate es))))
              ((list-rest es)
               (wreturn tr? (map ltranslate es)))
              (else
@@ -307,6 +318,8 @@ Lisp of some kind to semantically annotated Lua source code tokens.
                   "end" /block))
            ((list-rest '+ es)
             (add-between (map lcompile es) (binop "+")))
+           ((list-rest '* es)
+            (add-between (map lcompile es) (binop "*")))
            ((list-rest f args) ;; function application
             (tseq
              (if (symbol? f)
@@ -334,6 +347,7 @@ Lisp of some kind to semantically annotated Lua source code tokens.
    '("short begin" (80) (begin 555))
    '("long begin" (40) (begin 1 2 3 (let ((x 1)) x) (+ 1 2 3)))
    '("empty let" (80) (let () 1))
+   '("arithmetic" (80) (* (+ 1 2) (+ 3 4)))
    '("lambda" (80) (lambda () 555))
    '("lambda application" (80) ((lambda () 555)))
    '("simple let" (80) (let ((x 1)) x))
