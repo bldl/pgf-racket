@@ -204,26 +204,26 @@ TODO:
 ;; Inserts 'return' keywords in the appropriate places; namely the
 ;; last expression of each function body must be made a return
 ;; statement.
-(define (ltranslate e)
+(define (lreturnize e)
   (define (f tr? e)
     (cond
      ((list? e)
       (match e
              ((list-rest 'begin es)
-              `(begin ,@(map/last ltranslate (fix f tr?) es)))
+              `(begin ,@(map/last lreturnize (fix f tr?) es)))
              ((list-rest 'let
                          (list (list ns es) ...)
                          bes)
-              `(let ,(map list ns (map ltranslate es))
-                 ,@(map/last ltranslate (fix f tr?) bes)))
+              `(let ,(map list ns (map lreturnize es))
+                 ,@(map/last lreturnize (fix f tr?) bes)))
              ((list-rest 'lambda (list-rest ans) bes)
-              `(lambda ,ans ,@(map/last ltranslate (fix f #t) bes)))
+              `(lambda ,ans ,@(map/last lreturnize (fix f #t) bes)))
              ((list-rest '+ es)
-              (wreturn tr? `(+ ,@(map ltranslate es))))
+              (wreturn tr? `(+ ,@(map lreturnize es))))
              ((list-rest '* es)
-              (wreturn tr? `(* ,@(map ltranslate es))))
+              (wreturn tr? `(* ,@(map lreturnize es))))
              ((list-rest es)
-              (wreturn tr? (map ltranslate es)))
+              (wreturn tr? (map lreturnize es)))
              (else
               (syntax-error e))))
      ((null? e)
@@ -281,7 +281,7 @@ TODO:
 ;; using Lua, hopefully to the exactly same effect as with 'leval'.
 ;; Note that the generated token sequences have no whitespace to
 ;; separate tokens; that must be added prior to pretty printing.
-(define* (lcompile e)
+(define* (ltokenize e)
   (cond
    ((eq? e 'nil) "nil")
    ((symbol? e) (symbol->string e))
@@ -291,13 +291,13 @@ TODO:
    ((list? e)
     (match e
            ((list 'return e)
-            (tseq return-kw (lcompile e)))
+            (tseq return-kw (ltokenize e)))
            ((list-rest 'begin es)
             ;; xxx optimize away nil case earlier
             ;; xxx empty statement is actually ";"
             (if (null? es) "nil"
                 (tseq block/ "do" body/
-                      (map-stmt lcompile es)
+                      (map-stmt ltokenize es)
                       /body "end" /block)))
            ((list-rest 'let
                        (list (list ns es) ...)
@@ -306,31 +306,33 @@ TODO:
             (tseq block/ "do" body/
                   (map
                    (lambda (n e)
-                     (tseq stmt/ local-kw (lcompile n)
-                           (binop "=") (lcompile e) /stmt))
+                     (tseq stmt/ local-kw (ltokenize n)
+                           (binop "=") (ltokenize e) /stmt))
                    ns es)
-                  (map-stmt lcompile bes)
+                  (map-stmt ltokenize bes)
                   /body "end" /block))
            ((list-rest 'lambda (list-rest ans) bes)
             (tseq block/ function-kw lparen
-                  (add-between (map lcompile ans) comma)
-                  rparen body/ (map lcompile bes) /body
+                  (add-between (map ltokenize ans) comma)
+                  rparen body/ (map ltokenize bes) /body
                   "end" /block))
            ((list-rest '+ es)
-            (add-between (map lcompile es) (binop "+")))
+            (add-between (map ltokenize es) (binop "+")))
            ((list-rest '* es)
-            (add-between (map lcompile es) (binop "*")))
+            (add-between (map ltokenize es) (binop "*")))
            ((list-rest f args) ;; function application
             (tseq
              (if (symbol? f)
                  (symbol->string f)
-                 (tseq lparen (lcompile f) rparen))
+                 (tseq lparen (ltokenize f) rparen))
              lparen (add-between
-                  (map lcompile args)
+                  (map ltokenize args)
                   comma) rparen))
            (else
             (syntax-error e))))
    (else (syntax-error e))))
+
+(define lcompile (compose ltokenize lreturnize))
 
 ;; we can run Lua as "lua -" and pipe the input via STDIN.
 
@@ -369,7 +371,7 @@ TODO:
     (printfln "-- ~s [renamed]" e)
     (let ((v (leval (lenv-new) e)))
       (printfln "-- --> ~s" v)
-      (let ((le (lcompile (ltranslate e))))
+      (let ((le (lcompile e)))
         (print-spacedln le)
         (displayln (width-divider w))
         (pgf-println w (lspace le))
