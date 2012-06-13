@@ -188,11 +188,11 @@ TODO:
      ((pair? e)
       (match e
         ((list-rest '+ es)
-         (let ((sub `(+ ,@(map (fix f '+) es))))
-           (if (eq? ctx '*)
-               `(parens ,sub) sub)))
+         (let ((sub `(+ ,@(map (fix f '+) es)))
+               (par (if (eq? ctx '*) 'parens 'no-parens)))
+           `(,par ,sub)))
         ((list-rest '* es)
-         `(* ,@(map (fix f '*) es)))
+         `(no-parens (* ,@(map (fix f '*) es))))
         (else
          (map lparenthesize e))))
      (else e)))
@@ -264,8 +264,17 @@ TODO:
 (define-sem return/)
 (define-sem /return)
 
+(define-sem sub/)
+(define-sem /sub)
+
+(define sub-lparen (Anno '(lparen sub/) "("))
+(define sub-rparen (Anno '(rparen /sub) ")"))
+
 (define indent/ (Nest (LvInc 2)))
 (define /indent (Nest (LvPop)))
+
+(define-syntax-rule (when-anno a range body ...)
+  (when (memq (quote a) range) body ...))
 
 (define decide-lua
   (decider
@@ -273,10 +282,16 @@ TODO:
    (begin
      (cond
       ((memq 'comma pr) (yield (Insert sp)))
-      ((memq 'binop pr) (yield (Insert sp)))
+      ((memq 'binop pr)
+       (yield (if (and (memq 'lparen tr) (memq 'sub/ tr))
+                  (Insert br)
+                  (Insert sp))))
       ((memq 'local-kw pr) (yield (Insert sp)))
       ((memq 'function-kw pr) (yield (Insert sp)))
-      ((memq 'lparen pr) (yield (Insert align/))))
+      ((memq 'lparen pr) (yield (Insert align/)))
+      )
+     (when-anno sub/ tr (yield (Insert group/)))
+     (when-anno /sub tr (yield (Insert /group)))
      (cond
       ((memq 'binop tr) (yield (Insert nbsp)))
       ((memq 'rparen tr) (yield (Insert /align)))
@@ -287,7 +302,8 @@ TODO:
       ((memq '/stmt tr) (yield (Insert ";")))
       ((memq 'stmt/ tr) (yield (and (memq '/stmt pr) (Insert (Line)))))
       ((memq 'return/ tr) (yield (Insert indent/) (Insert "return") (Insert sp)))
-      ((memq '/return tr) (yield (Insert /indent))))
+      ((memq '/return tr) (yield (Insert /indent)))
+      )
      )))
 
 (define (map-stmt f lst)
@@ -340,7 +356,9 @@ TODO:
            ((list-rest '* es)
             (add-between (map ltokenize es) (binop "*")))
            ((list 'parens e)
-            (tseq "(" (ltokenize e) ")"))
+            (tseq sub-lparen (ltokenize e) sub-rparen))
+           ((list 'no-parens e)
+            (tseq sub/ (ltokenize e) /sub))
            ((list-rest f args) ;; function application
             (tseq
              (if (symbol? f)
@@ -380,6 +398,10 @@ TODO:
    '("let over lambda (identity)" (80) (let ((f (lambda (x) x))) (f 666)))
    '("lambda application (multiple args)" (80 40) ((lambda (x y z) (+ x y z)) 1 2 3))
    '("complex expression 1" (80 40) (let ((f (lambda (x) (* (+ 1 2 (+ 3 4) 5) (+ (* x 7) x)))) (a 5)) (let ((x a)) (begin 2 (+ (f x) 1)))))
+   '("paper expression" (20 30 40) (* (+ 1 2) (+ 3 4 (+ 5 6 7) 8)))
+   '("paper expression (modified 1)" (20 30 40) (* (+ 1 2) (* 3 4 (+ 5 6 7) 8)))
+   '("paper expression (modified 2)" (20 30 40) (* (+ 1 2) (+ 3 4 (* 5 6 7) 8)))
+   '("paper expression (function)" (20 30 40) (lambda () (* (+ 1 2) (+ 3 4 (* 5 6 7) 8))))
    ))
 
 (define (lspace s)

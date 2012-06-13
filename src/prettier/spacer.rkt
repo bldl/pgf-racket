@@ -171,8 +171,9 @@ ranges, HTML style.
         ((Text " ") (display "~"))
         ((Text s) (display (format "[~a]" s)))
         ((Line) (display " "))
-        ((Anno a (Nil)) (display a))
+        ;;((Anno a (Nil)) (display a))
         ((Anno _ m) (print-spaced m))
+        ((Anno a m) (begin (display a) (print-spaced m)))
         ((Nil) (void))
         (else (display (format " ~s " t))))))
 
