@@ -246,7 +246,6 @@ TODO:
 (define comma (Anno '(comma) ","))
 (define local-kw (Anno '(local-kw) "local"))
 (define function-kw (Anno '(function-kw) "function"))
-(define return-kw (Anno '(return-kw) "return"))
 (define (binop x) (Anno '(binop) x))
 (define block/ (Anno '(block/) ""))
 (define /block (Anno '(/block) ""))
@@ -254,6 +253,8 @@ TODO:
 (define /body (Anno '(/body) ""))
 (define stmt/ (Anno '(stmt/) ""))
 (define /stmt (Anno '(/stmt) ""))
+(define return/ (Anno '(return/) ""))
+(define /return (Anno '(/return) ""))
 
 (define indent/ (Nest (LvInc 2)))
 (define /indent (Nest (LvPop)))
@@ -267,7 +268,6 @@ TODO:
       ((memq 'binop pr) (yield (Insert sp)))
       ((memq 'local-kw pr) (yield (Insert sp)))
       ((memq 'function-kw pr) (yield (Insert sp)))
-      ((memq 'return-kw pr) (yield (Insert sp)))
       ((memq 'lparen pr) (yield (Insert align/))))
      (cond
       ((memq 'binop tr) (yield (Insert nbsp)))
@@ -277,7 +277,9 @@ TODO:
       ((memq 'body/ tr) (yield (Insert indent/) (Insert br) (Skip)))
       ((memq '/body tr) (yield (Insert /indent) (Insert br) (Skip)))
       ((memq '/stmt tr) (yield (Insert ";") (Skip)))
-      ((memq 'stmt/ tr) (yield (and (memq '/stmt pr) (Insert (Line))) (Skip))))
+      ((memq 'stmt/ tr) (yield (and (memq '/stmt pr) (Insert (Line))) (Skip)))
+      ((memq 'return/ tr) (yield (Insert indent/) (Insert "return") (Insert sp) (Skip)))
+      ((memq '/return tr) (yield (Insert /indent) (Skip))))
      )))
 
 (define (map-stmt f lst)
@@ -300,7 +302,7 @@ TODO:
    ((list? e)
     (match e
            ((list 'return e)
-            (tseq return-kw (ltokenize e)))
+            (tseq return/ (ltokenize e) /return))
            ((list-rest 'begin es)
             ;; xxx optimize away nil case earlier
             ;; xxx empty statement is actually ";"
@@ -369,6 +371,7 @@ TODO:
    '("let over lambda" (80) (let ((f (lambda () 555))) (f)))
    '("let over lambda (identity)" (80) (let ((f (lambda (x) x))) (f 666)))
    '("lambda application (multiple args)" (80 40) ((lambda (x y z) (+ x y z)) 1 2 3))
+   '("complex expression 1" (80 40) (let ((f (lambda (x) (* (+ 1 2 (+ 3 4) 5) (+ (* x 7) x)))) (a 5)) (let ((x a)) (begin 2 (+ (f x) 1)))))
    ))
 
 (define (lspace s)
