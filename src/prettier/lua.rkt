@@ -241,6 +241,13 @@ TODO:
       (wreturn tr? e))))
   (f #f e))
 
+;; Instantiates a semantic token.
+(define (sem . annos)
+  (Anno annos (Nil)))
+
+(define-syntax-rule (define-sem n)
+  (define n (sem (quote n))))
+
 (define lparen (Anno '(lparen) "("))
 (define rparen (Anno '(rparen) ")"))
 (define comma (Anno '(comma) ","))
@@ -253,8 +260,9 @@ TODO:
 (define /body (Anno '(/body) (Nil)))
 (define stmt/ (Anno '(stmt/) (Nil)))
 (define /stmt (Anno '(/stmt) (Nil)))
-(define return/ (Anno '(return/) (Nil)))
-(define /return (Anno '(/return) (Nil)))
+
+(define-sem return/)
+(define-sem /return)
 
 (define indent/ (Nest (LvInc 2)))
 (define /indent (Nest (LvPop)))
