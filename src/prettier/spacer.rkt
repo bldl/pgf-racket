@@ -164,28 +164,28 @@ ranges, HTML style.
           ;;(writeln (list 'inToks inToks))
           (space-tokens st inToks outToks)))))
 
-(define (display-annos a (mode #f))
-  (cond
-   ((eq? mode 'open) (display (cons 'OPEN a)))
-   ((eq? mode 'close) (display (cons 'CLOSE a)))
-   (else (display a))))
+(define (annos->string a)
+  (apply string-append (add-between (map symbol->string a) " ")))
 
-(define* (print-spaced toks (annos? #f))
-  (for ((t (in-tseq toks)))
-      (match t
-        ((Union (Text " ") (Line)) (display "_"))
-        ((Text " ") (display "~"))
-        ((Text s) (display (format "[~a]" s)))
-        ((Line) (display " "))
-        ((Anno a (Nil)) (when annos? (display-annos a)))
-        ((Anno a m) (if annos?
-                        (begin
-                          (display-annos a 'open)
-                          (print-spaced m)
-                          (display-annos a 'close))
-                        (print-spaced m)))
-        ((Nil) (void))
-        (else (display (format " ~s " t))))))
+(define* (print-spaced toks (annos? #f) (st (new-SpcSt)))
+  (let* ((add (lambda (a) (set! st (add-annos st a))))
+         (del (lambda (a) (set! st (del-annos st a))))
+         (get (thunk (SpcSt-tr st))))
+    (for ((t (in-tseq toks)))
+        (match t
+          ((Union (Text " ") (Line)) (display "_"))
+          ((Text " ") (display "~"))
+          ((Text s) (display (format "[~a~a]" s (if annos? (let ((a (get))) (if (null? a) "" (format ":~a" (annos->string a)))) ""))))
+          ((Line) (display " "))
+          ((Anno/ a) (add a))
+          ((/Anno a) (del a))
+          ((Anno a (Nil)) (when annos? (display (format "(~a)" (annos->string a)))))
+          ((Anno a m) (begin
+                        (add a) 
+                        (print-spaced m annos? st)
+                        (del a)))
+          ((Nil) (void))
+          (else (display (format " ~s " t)))))))
 
 (define* (print-spacedln toks (annos? #f))
   (print-spaced toks annos?) (newline))
