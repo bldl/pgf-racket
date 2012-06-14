@@ -164,18 +164,28 @@ ranges, HTML style.
           ;;(writeln (list 'inToks inToks))
           (space-tokens st inToks outToks)))))
 
-(define* (print-spaced toks)
+(define (display-annos a (mode #f))
+  (cond
+   ((eq? mode 'open) (display (cons 'OPEN a)))
+   ((eq? mode 'close) (display (cons 'CLOSE a)))
+   (else (display a))))
+
+(define* (print-spaced toks (annos? #f))
   (for ((t (in-tseq toks)))
       (match t
         ((Union (Text " ") (Line)) (display "_"))
         ((Text " ") (display "~"))
         ((Text s) (display (format "[~a]" s)))
         ((Line) (display " "))
-        ;;((Anno a (Nil)) (display a))
-        ((Anno _ m) (print-spaced m))
-        ((Anno a m) (begin (display a) (print-spaced m)))
+        ((Anno a (Nil)) (when annos? (display-annos a)))
+        ((Anno a m) (if annos?
+                        (begin
+                          (display-annos a 'open)
+                          (print-spaced m)
+                          (display-annos a 'close))
+                        (print-spaced m)))
         ((Nil) (void))
         (else (display (format " ~s " t))))))
 
-(define* (print-spacedln toks)
-  (print-spaced toks) (newline))
+(define* (print-spacedln toks (annos? #f))
+  (print-spaced toks annos?) (newline))
