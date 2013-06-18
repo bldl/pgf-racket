@@ -70,70 +70,21 @@
 ;; Default line break.
 (define current-line (make-parameter (Line)))
 
-(define weak-f (make-parameter default-strength))
-(define medium-f (make-parameter default-strength))
-(define strong-f (make-parameter default-strength))
-
-(define (weak-sh cw i k)
-  ((weak-f) cw i k))
-  
-(define (medium-sh cw i k)
-  ((medium-f) cw i k))
-
-(define (strong-sh cw i k)
-  ((strong-f) cw i k))
-
-(define union/default union)
-
-;; Choice construct. (Strong, push all the way to margin.)
-(define (union/strong l r)
-  (union l r strong-sh))
-
-;; Choice construct.
-(define (union/medium l r)
-  (union l r medium-sh))
-
-;; Choice construct. (Weak.)
-(define (union/weak l r)
-  (union l r weak-sh))
-
 ;; Forced linebreak. Might have a suffix.
 (define (br/current)
   (current-line))
 
 ;; Breakable space.
 (define (sp/current)
-  (union/default (Text " ") (current-line)))
-(define (sp/strong)
-  (union/strong (Text " ") (current-line)))
-(define (sp/medium)
-  (union/medium (Text " ") (current-line)))
-(define (sp/weak)
-  (union/weak (Text " ") (current-line)))
+  (union (Text " ") (current-line)))
 
 ;; Breakable point.
 (define (breakable/current)
-  (union/default empty-tseq (current-line)))
-(define (breakable/strong)
-  (union/strong empty-tseq (current-line)))
-(define (breakable/medium)
-  (union/medium empty-tseq (current-line)))
-(define (breakable/weak)
-  (union/weak empty-tseq (current-line)))
+  (union empty-tseq (current-line)))
 
 (define-syntax-rule
   (in-cpp body ...)
   (parameterize ((current-line (cat " \\" (Line)))) body ...))
-
-#|
-(define-syntax-rule
-  (weaken body ...)
-  (parameterize ((current-strength weak)) body ...))
-
-(define-syntax-rule
-  (strengthen body ...)
-  (parameterize ((current-strength strong)) body ...))
-|#
 
 ;;; 
 ;;; Pretty printing utilities
@@ -176,16 +127,16 @@
 ;;; 
 
 (define (parens doc)
-  (cat (Text "(") (breakable/strong) doc (breakable/strong) (Text ")")))
+  (cat (Text "(") (breakable/current) doc (breakable/current) (Text ")")))
 
 (define (semi) (Text ";"))
 
 (define (bracket l x r)
-  (group (cat l (indent 2) br x dedent br r) strong-sh))
+  (group (cat l (indent 2) br x dedent br r)))
 
 (define (cpp-if c t (e #f))
    (cat
-    (in-cpp (cat (Text "#if") (sp/medium) c)) (br/current)
+    (in-cpp (cat (Text "#if") (sp/current) c)) (br/current)
     t (br/current)
     (and e (cat (Text "#else") (br/current)
                    e (br/current)))
@@ -216,7 +167,7 @@
    (Line) (Text "}") post))
 
 (define (c-struct name members)
-  (let ((pre (cat (Text "struct") (sp/strong) name)))
+  (let ((pre (cat (Text "struct") (sp/current) name)))
     (indented-block #:pre pre
                     #:body-elems members
                     #:post (Text ";"))))
@@ -230,17 +181,14 @@
       doc))
 
 (define (infix op)
-  (cat (sp/strong) (Text op) (sp/weak)))
-
-(define (infix/medium op)
-  (cat (sp/strong) (Text op) (sp/medium)))
+  (cat (sp/current) (Text op) (sp/current)))
 
 (define (infix/br op)
   (cat (Text " ") (Text op) (br/current)))
 
 (define (c-add-expr exprs ctx)
   (let ((outer? (eq? ctx 'outer)))
-    (let ((sep ((if outer? infix infix/medium) "+")))
+    (let ((sep (infix "+")))
       (maybe-parens
        (not outer?)
        (sep-by/elems sep exprs)))))
@@ -256,12 +204,12 @@
 (define (c-call-expr n args)
   (let* ((xs (add-between args (cat (Text ",") (Line))))
          (x (apply cat xs)))
-    (cat n (breakable/medium) (Text "(")
-            align (group x strong-sh) dedent (Text ")"))))
+    (cat n (breakable/current) (Text "(")
+            align (group x) dedent (Text ")"))))
 
 (define (c-qual-type-inst n args)
-  (let* ((x (group (sep-by/elems (cat "," (Line)) args) strong-sh)))
-    (cat n (breakable/weak) (Text "{")
+  (let* ((x (group (sep-by/elems (cat "," (Line)) args))))
+    (cat n (breakable/current) (Text "{")
             align x dedent (Text "}"))))
 
 (define (c-expr-stmt expr)
@@ -272,12 +220,12 @@
 (define (two-block pre body-1 mid (body-2 #f))
   (cat
    (and pre (ind pre))
-   (union/default
+   (union
     (cat (Text " {")
          (and body-1 (ind-cat (Line) body-1))
          (Line) (Text "}")
          (and body-2
-              (cat (sp/medium) mid (sp/medium) (Text "{")
+              (cat (sp/current) mid (sp/current) (Text "{")
                    (ind-cat (Line) body-2)
                    (Line) (Text "}"))))
     (cat (Line) (Text "{")
@@ -301,8 +249,8 @@
    (ind-cat (and (not (null? modifs))
                  (apply cat
                         (map (lambda (modif)
-                               (cat modif (sp/medium))) modifs)))
-            (and rtype (cat rtype (sp/medium)))
+                               (cat modif (sp/current))) modifs)))
+            (and rtype (cat rtype (sp/current)))
             name
             (if (null? params)
                 (Text "()")
@@ -368,7 +316,7 @@
 
 (define (random-qual (count (+ 1 (random 2))))
   (times/cat count
-             (cat (random-namespace-name) (Text "::") (breakable/weak))))
+             (cat (random-namespace-name) (Text "::") (breakable/current))))
 
 (define (random-typename (depth 1)
                          #:min (min 5)
@@ -396,7 +344,7 @@
 
 (define (random-cpp-expr (depth 1))
   (define (f/br s1 doc s2)
-    (cat (Text s1) (breakable/strong) doc (breakable/strong) (Text s2)))
+    (cat (Text s1) (breakable/current) doc (breakable/current) (Text s2)))
   (define outer? (eqv? depth 1))
   (in-cpp
    (random-case/scored
@@ -411,14 +359,14 @@
              (times/sep/cat
               (random/from-range 2 4)
               (random-cpp-expr (+ depth 1))
-              (cat (sp/strong) (Text "&&") (sp/weak)))
+              (cat (sp/current) (Text "&&") (sp/current)))
              ")"))
      )))
 
 (define (random-cpp-var-decl)
   (in-cpp
-   (ind-cat (Text "#define") (sp/strong)
-            (random-cpp-varname) (sp/weak)
+   (ind-cat (Text "#define") (sp/current)
+            (random-cpp-varname) (sp/current)
             (random-cpp-expr))))
 
 (define-syntax random-case/scored
@@ -444,12 +392,12 @@
         (else (error "mismatch" k)))))))
 
 (define (random-vardecl ctx)
-  (ind-cat (and (eq? ctx 'tl) (cat (Text "static") (sp/medium)))
-           (random-typename) (sp/medium) (random-varname) (semi)))
+  (ind-cat (and (eq? ctx 'tl) (cat (Text "static") (sp/current)))
+           (random-typename) (sp/current) (random-varname) (semi)))
 
 (define (random-typedef)
-  (ind-cat (Text "typedef") (sp/medium)
-           (random-typename #:ref #t) (sp/medium)
+  (ind-cat (Text "typedef") (sp/current)
+           (random-typename #:ref #t) (sp/current)
            (random-typename #:args-ok #f) (Text ";")))
 
 (define (random-struct depth)
@@ -573,36 +521,27 @@
     (let ((i (string-length i)))
       (* cw (expt (+ 1 (* m i)) (- e))))))
 
-(define sh-lst
-  (list
-   (cons "default" (thunk (weak-f default-strength)
-                          (medium-f default-strength)
-                          (strong-f default-strength)))
-   (cons "forced" (thunk (weak-f (force-sh .3 .3))
-                         (medium-f (force-sh .15 .15))
-                         (strong-f default-strength)))
-   (cons "harder" (thunk (weak-f (force-sh .4 .4))
-                         (medium-f (force-sh .2 .2))
-                         (strong-f default-strength)))
-   ))
-
 ;;; 
 ;;; Test runner
 ;;; 
 
-(define (test-doc w t d sh-t sh-f)
-  (printfln "// ~a (w=~a, sh=~a)" t w sh-t)
+(define (test-doc w t d)
+  (printfln "// ~a (w=~a)" t w)
   ;;(for ((d d)) (write d))
   (displayln (width-divider w))
-  (sh-f)
   (pgf-println w d)
   (displayln "// ----------"))
 
 (define (main)
   (displayln "// -*- c++ -*-")
   (for* ((w (reverse w-lst))
-         (d d-lst)
-         (sh sh-lst))
-        (test-doc w (car d) (cdr d) (car sh) (cdr sh))))
-      
-(main)
+         (d d-lst))
+        (test-doc w (car d) (cdr d)))
+  )
+
+;(main)
+
+(time (main))
+
+;(require profile)
+;(profile-thunk main)
