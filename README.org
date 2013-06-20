@@ -20,7 +20,7 @@ This repository contains various experiments used during the development of the 
 
    This "Rascalish" variant was produced from the Haskellish one. What was necessary in this "port" was to deal with paradigm differences, involving things such as implementing laziness explicitly, and replacing deep recursion with loops. We then produced a Rascal port based on this code, basically by just dealing with superficial language differences, and library differences.
 
-** =groupings=
+** =pgf_groupings=
 
    This variant builds extensions onto the Rascalish variant of the codebase. The most notable extension is support for "groupings", which allows for operations such as =group= and =flatten= (and anything, really) to be represented as tokens within token sequences.
 
