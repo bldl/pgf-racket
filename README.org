@@ -6,7 +6,7 @@ This repository contains various experiments used during the development of the 
 
   We use Git branches to capture interesting snapshots of the codebase to allow them to be separately maintained if desired. The =master= branch merely contains shared documentation.
 
-  ** =haskellish=
+** =haskellish=
 
   This "Haskellish" variant aims to be a faithful adaptation of Philip Wadler's pretty printer to Racket. In fact it's such a straightforward translation of the Haskell code listing given in Wadler's paper [1] that it may be covered by Wadler's copyright. The goal here is to make the Racket port such that anyone comparing it against what is given in Wadler's paper would be convinced that it implements the same algorithm.
 
