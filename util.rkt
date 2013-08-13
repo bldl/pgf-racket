@@ -38,7 +38,7 @@
        (provide name)))))
 
 (define-syntax-rule*
-  (struct* nm rest ...)
+  (concrete-struct* nm rest ...)
   (begin
     (struct nm rest ...)
     (provide (struct-out nm))))
@@ -46,8 +46,8 @@
 (define-syntax-rule*
   (abstract-struct* nm rest ...)
   (begin
-    (struct nm rest ...)
-    (provide (except-out (struct-out nm) nm))))
+    (struct nm rest ... #:constructor-name ctor)
+    (provide (except-out (struct-out nm) ctor))))
 
 (define* println
   (case-lambda

@@ -8,15 +8,14 @@ the processing phase.
 
 |#
 
-(struct Token () #:transparent)
-(provide Token?)
+(require "util.rkt")
+
+(abstract-struct* Token () #:transparent)
 
 (define-syntax-rule (define-token* n fld-spec ...)
-  (begin
-    (struct n Token (fld-spec ...) #:transparent)
-    (provide (struct-out n))))
+  (concrete-struct* n Token (fld-spec ...) #:transparent))
 
-(define-token* Text a s)
-(define-token* Line a)
+(define-token* TE a s)
+(define-token* LE a)
 (define-token* GBeg a)
 (define-token* GEnd a)
