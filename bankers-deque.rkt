@@ -38,13 +38,13 @@ maintain time/space characteristics of the algorithm.
   (cond
    ((> lenf (+ (* (dq-factor) lenr) 1))
     (let*-values (([lenf+ lenr+] (div2 (+ lenf lenr)))
-		  ([f+ f-rest] (split-at lenf+ f))
+		  ([f+ f-rest] (split-at f lenf+))
 		  ([r+] (append r (reverse f-rest))))
       (Deque lenf+ f+ lenr+ r+)))
 
    ((> lenr (+ (* (dq-factor) lenf) 1))
     (let*-values (([lenf+ lenr+] (div2 (+ lenf lenr)))
-		  ([r+ r-rest] (split-at lenr+ r))
+		  ([r+ r-rest] (split-at r lenr+))
 		  ([f+] (append f (reverse r-rest))))
       (Deque lenf+ f+ lenr+ r+)))
 
@@ -64,6 +64,10 @@ maintain time/space characteristics of the algorithm.
 (define* (dq-push-r q e)
   (check (Deque-lenf q) (Deque-f q) 
 	 (+ (Deque-lenr q) 1) (cons e (Deque-r q))))
+
+(define* (dq-push-f-r q e-f e-r)
+  (check (+ (Deque-lenf q) 1) (cons e-f (Deque-f q))
+	 (+ (Deque-lenr q) 1) (cons e-r (Deque-r q))))
 
 ;; Returns the first element from the front, or failure-result if
 ;; none.
@@ -162,3 +166,7 @@ maintain time/space characteristics of the algorithm.
       (check lenf (Deque-f q)
 	     (+ lenr qa-lenf qa-lenr)
 	     (append (Deque-r qa) (reverse (Deque-f qa)) (Deque-r q)))))))
+
+(define* (dq-each q f)
+  (for-each f (Deque-f q))
+  (for-each f (reverse (Deque-r q))))
