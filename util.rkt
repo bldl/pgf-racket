@@ -103,29 +103,24 @@
 	    (_ stx)))
 	(syntax->list stx)))))
 
+(define-syntax-rule (define-letv* n letf)
+  (define-syntax* (n stx)
+    (syntax-case stx ()
+      ((_ ((x v) (... ...)) b (... ...))
+       (with-syntax ((vs (rw-let-vars #'((x v) (... ...)))))
+	 #'(letf vs b (... ...)))))))
+
 ;; E.g.
 ;; (letv ((x 1) ((y z) (values 2 3))) (list x y z))
-(define-syntax* (letv stx)
-  (syntax-case stx ()
-    ((_ ((x v) ...) b ...)
-     (with-syntax ((vs (rw-let-vars #'((x v) ...))))
-       #'(let-values vs b ...)))))
+(define-letv* letv let-values)
 
 ;; E.g.
 ;; (letv* ((x 1) ((y z) (values x 3))) (list x y z))
-(define-syntax* (letv* stx)
-  (syntax-case stx ()
-    ((_ ((x v) ...) b ...)
-     (with-syntax ((vs (rw-let-vars #'((x v) ...))))
-       #'(let*-values vs b ...)))))
+(define-letv* letv* let*-values)
 
 ;; E.g.
 ;; (letrecv ((x (thunk (z))) ((y z) (values 2 (thunk 3)))) (list (x) y (z)))
-(define-syntax* (letrecv stx)
-  (syntax-case stx ()
-    ((_ ((x v) ...) b ...)
-     (with-syntax ((vs (rw-let-vars #'((x v) ...))))
-       #'(letrec-values vs b ...)))))
+(define-letv* letrecv letrec-values)
 
 #|
 
