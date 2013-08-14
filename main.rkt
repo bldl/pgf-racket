@@ -127,6 +127,27 @@ algorithmic properties.
       (writeln `(read ,t)) ;; output similar to paper
       (set! grp (go grp t)))))
 
+(define* (make-format)
+  (let* ((w (page-width))
+	 (st (cons 0 w)))
+    (define (go st t)
+      (define-values (st-f st-l) (first-rest st))
+      (match t
+	((TE _ s) (begin (yield s) st))
+	((LE p) (if (= st-f 0)
+		    (begin (yield "\n") (cons 0 (+ p w)))
+		    (begin (yield " ") st)))
+	((GBeg p) (cond
+		   ((and (= st-f 0) (eq? p 'too-far))
+		    (cons 0 st-l))
+		   ((= st-f 0)
+		    (cons (if (<= p st-l) 1 0) st-l))
+		   (else
+		    (cons (+ st-f 1) st-l))))
+	((GEnd _) (cons (if (= st-f 0) 0 (- st-f 1)) st-l))))
+    (lambda (t)
+      (set! st (go st t)))))
+
 (module* main #f
   (require "sexp.rkt")
   (page-width 3)
@@ -135,6 +156,7 @@ algorithmic properties.
      (pretty-println d)
      ((producer-compose
        writeln
+       (make-format)
        (make-annotate-width)
        (make-annotate-position)
        sexp->tseq
