@@ -30,9 +30,6 @@ algorithmic properties.
 
 (define* page-width (make-parameter 75))
 
- (define-syntax-rule (matches? e pat)
-   (match e (pat #t) (_ #f)))
-
 ;; TODO We require very stringent algorithmic properties for state
 ;; updates and queries for the overall algorithm to get the original
 ;; properties.
@@ -162,10 +159,10 @@ algorithmic properties.
        sexp->tseq
        (thunk (yield d)))))
    (list
-    ;;'(concat "Hello" " " "world")
-    ;;'(group (concat))
-    ;;'(group (concat "" ""))
-    ;;'(group (group "x"))
-    ;;'(group (concat (group "a") "b"))
+    '(concat "Hello" " " "world")
+    '(group (concat))
+    '(group (concat "" ""))
+    '(group (group "x"))
+    '(group (concat (group "a") "b"))
     '(group (concat "A" line (group (concat "B" line "C")))) ;; from paper
     )))
