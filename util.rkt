@@ -72,6 +72,9 @@
     ((_ fn arg ...)
      (lambda rest (apply fn arg ... rest)))))
 
+(define* (first-rest lst)
+  (values (car lst) (cdr lst)))
+
 (define* (words s)
   (regexp-split #px"\\s+" (string-trim-both s)))
 
