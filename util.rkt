@@ -92,6 +92,22 @@
          (s (apply string-append "// " s-lst)))
     s))
 
+;; E.g.
+;; (letv* ((x 1) ((y z) (values 2 3))) (list x y z))
+(define-syntax* (letv* stx)
+  (syntax-case stx ()
+    ((_ ((x v) ...) b ...)
+     (with-syntax (((y ...)
+		    (map
+		     (lambda (stx)
+		       (syntax-case stx ()
+			 ((x v)
+			  (identifier? #'x)
+			  #'((x) v))
+			 (_ stx)))
+		     (syntax->list #'((x v) ...)))))
+       #'(let*-values (y ...) b ...)))))
+
 #|
 
 Copyright 2009 Helsinki Institute for Information Technology (HIIT)
