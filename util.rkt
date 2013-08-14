@@ -92,21 +92,40 @@
          (s (apply string-append "// " s-lst)))
     s))
 
+(define-for-syntax (rw-let-vars stx)
+  (quasisyntax/loc stx
+   (#,@(map
+	(lambda (stx)
+	  (syntax-case stx ()
+	    ((x v)
+	     (identifier? #'x)
+	     #'((x) v))
+	    (_ stx)))
+	(syntax->list stx)))))
+
 ;; E.g.
-;; (letv* ((x 1) ((y z) (values 2 3))) (list x y z))
+;; (letv ((x 1) ((y z) (values 2 3))) (list x y z))
+(define-syntax* (letv stx)
+  (syntax-case stx ()
+    ((_ ((x v) ...) b ...)
+     (with-syntax ((vs (rw-let-vars #'((x v) ...))))
+       #'(let-values vs b ...)))))
+
+;; E.g.
+;; (letv* ((x 1) ((y z) (values x 3))) (list x y z))
 (define-syntax* (letv* stx)
   (syntax-case stx ()
     ((_ ((x v) ...) b ...)
-     (with-syntax (((y ...)
-		    (map
-		     (lambda (stx)
-		       (syntax-case stx ()
-			 ((x v)
-			  (identifier? #'x)
-			  #'((x) v))
-			 (_ stx)))
-		     (syntax->list #'((x v) ...)))))
-       #'(let*-values (y ...) b ...)))))
+     (with-syntax ((vs (rw-let-vars #'((x v) ...))))
+       #'(let*-values vs b ...)))))
+
+;; E.g.
+;; (letrecv ((x (thunk (z))) ((y z) (values 2 (thunk 3)))) (list (x) y (z)))
+(define-syntax* (letrecv stx)
+  (syntax-case stx ()
+    ((_ ((x v) ...) b ...)
+     (with-syntax ((vs (rw-let-vars #'((x v) ...))))
+       #'(letrec-values vs b ...)))))
 
 #|
 
