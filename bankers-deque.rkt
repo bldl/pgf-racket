@@ -7,7 +7,8 @@ stream type. The invariant maintained for [lenf f lenr r] is (and (<=
 lenf (+ (* (dq-factor) lenr) 1)) (<= lenr (+ (* (dq-factor) lenf)
 1))), for some constant '(dq-factor)', in order to maintain balance.
 'f' means "front" and 'r' means "rear". The algorithm supports every
-deque operation in O(1) amortized time.
+deque operation in O(1) amortized time. dq-each is an exception, and
+is not even O(n).
 
 TODO Earlier we used Clojure's lazy sequences as the stream type.
 Check that our choice of using Racket lists is also appropriate to
@@ -19,7 +20,14 @@ maintain time/space characteristics of the algorithm.
 
 (define* dq-factor (make-parameter 7))
 
-(struct Deque (lenf f lenr r) #:transparent)
+(define (dq-print x out mode)
+  (write-string "#dq" out)
+  (write (append (Deque-f x)
+		 (reverse (Deque-r x))) out))
+
+(struct Deque (lenf f lenr r) 
+	#:transparent
+	#:property prop:custom-write dq-print)
 
 ;; An empty double-ended queue.
 (define* dq-empty
@@ -54,6 +62,17 @@ maintain time/space characteristics of the algorithm.
 ;; Whether empty.
 (define* (dq-empty? q)
   (and (= (Deque-lenf q) 0) (= (Deque-lenr q) 0)))
+
+(define* (dq-length q)
+  (let ((lenf (Deque-lenf q))
+        (lenr (Deque-lenr q)))
+    (+ lenf lenr)))
+
+(define* (dq-singleton e)
+  (dq-push-f dq-empty e))
+
+(define* (dq-new . es)
+  (check (length es) es 0 '()))
 
 ;; Push element to front.
 (define* (dq-push-f q e)
@@ -103,6 +122,21 @@ maintain time/space characteristics of the algorithm.
      (else 
       (first (Deque-r q))))))
 
+;; Modifies the first element from the rear.
+(define* (dq-modify-r q f)
+  (let ((lenf (Deque-lenf q))
+        (lenr (Deque-lenr q)))
+    (cond
+     ((and (= lenf 0) (= lenr 0))
+      (error 'dq-modify-r "empty deque"))
+
+     ((= lenr 0) 
+      (Deque 1 (list (f (first (Deque-f q)))) 0 '()))
+
+     (else 
+      (struct-copy Deque q (r (let ((r (Deque-r q)))
+				(cons (f (car r)) (cdr r)))))))))
+
 ;; Drops the first element from the front. Does nothing if there isn't
 ;; one.
 (define* (dq-tail-f q)
@@ -138,6 +172,22 @@ maintain time/space characteristics of the algorithm.
       (let ((f (Deque-f q)))
 	(values (first f)
 		(check (- lenf 1) (rest f) lenr (Deque-r q))))))))
+
+;; Return first element from the rear, plus all but the first element
+;; from the rear. Same semantics as for (values (dq-peek-r q)
+;; (dq-tail-r q)), but more efficient.
+(define* (dq-pop-r q (failure-result #f))
+  (let ((lenf (Deque-lenf q))
+        (lenr (Deque-lenr q)))
+    (cond
+     ((and (= lenf 0) (= lenr 0)) 
+      (values failure-result q))
+     ((= lenr 0) 
+      (values (first (Deque-f q)) dq-empty))
+     (else 
+      (let ((r (Deque-r q)))
+	(values (first r)
+		(check lenf (Deque-f q) (- lenr 1) (rest r))))))))
 
 ;; Appends another deque 'qa' to the front.
 (define* (dq-prepend q qa)
