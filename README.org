@@ -1,73 +1,80 @@
 # -*- org -*-
 #+TITLE: PGF in Racket
 
-This repository contains various experiments used during the
-development of the Pretty Good Formatter (PGF) pipeline, written in
-Racket. This codebase is particularly focused on developing variations
-of Wadler's "prettier printer" algorithm. It is a step-by-step
-derivation from the original Haskell implementation, first a fairly
-faithful adaptation, then diverging to be easier to implement in more
-traditional-style languages (such as Rascal and Java), and finally
-being further adjusted to better fit the PGF pipeline.
+This repository contains various experiments used during the development of the [[https://github.com/nuthatchery/pgf][Pretty Good Formatter]] (PGF) pipeline, written in [[http://racket-lang.org/][Racket]].
 
 * Variants
 
-  We use Git branches to capture interesting snapshots of the codebase
-  to allow them to be separately maintained if desired. The =master=
-  branch merely contains shared documentation.
+  We use Git branches to capture interesting snapshots of the codebase to allow them to be separately maintained if desired. The branches make use of different coding styles (e.g., with lazy data structures, or coroutine style with =yield=), and one style is not necessarily superior to another. The =master= branch merely contains shared documentation.
 
-** =haskellish=
+** Port of Kiselyov et al's Pretty Printer
 
-   This "Haskellish" variant aims to be a faithful adaptation of Philip
-   Wadler's pretty printer to Racket. In fact it's such a
-   straightforward translation of the Haskell code listing given in
-   Wadler's paper [1] that it may be covered by Wadler's copyright. The
-   goal here is to make the Racket port such that anyone comparing it
-   against what is given in Wadler's paper would be convinced that it
-   implements the same algorithm.
-   
-   In my opinion the Racket code reads much the same as the Haskell
-   code. The Racket version defines some custom macros to enable this.
-   The remaining differences in the way the code reads is that the
-   Racket version is not using overloading or pattern matching, which
-   are somewhat atypical in Scheme code, and also that laziness is
-   somewhat more explicit in the Racket code, but not overly so.
-   
-   Racket includes the =match= pattern matcher and also a =struct*=
-   pattern form which we could have used, but given that the patterns
-   used in the Haskell code were rather simple, we feel that this would
-   not have given enough benefit to make up for the loss of idiomatic
-   Scheme. We could have also devised some kind of multimethods with
-   pattern-based dynamic dispatch, but given the fixed set of pretty
-   printing primitives this also didn't seem worthwhile, and we're
-   simply doing our "dispatch" within functions using =cond= and other
-   conditional expressions.
-   
-   The most significant difference while translating was Haskell's lazy
-   evaluation semantics vs. Racket's strict evaluation semantics. Had
-   we not used promises to address this issue it would have destroyed
-   the performance of the Racket version; for instance formatting this
-   document with the Racket version would not have been feasible. Hence
-   we added "even" laziness to all the right places without completely
-   overhauling the Racket code. Our approach is based on Wadler's own
-   paper on laziness [2].
+   We have made a Racket port of Kiselyov et al's Haskell-based [[http://okmij.org/ftp/continuations/PPYield/][solution]] [4] to the bounded-lookahead, linear-time, incremental pretty printing problem. Their solution makes use of a =yield= construct similar to what one finds in Ruby and many other languages [3]. Their (monadic) implementation of =yield= however does not require full first-class delimited continuations (such as created by Racket's =call-with-continuation-prompt=), but rather is based on much lighter-weight /simple generators/. Our implementation of =yield= uses Racket's support for dynamic binding (e.g., /parameterization/); this approach is semantically equivalent to the Haskell implementation's use of the =Reader= monad to store the =yield= target in the dynamic environment.
 
-** =rascalish=
+*** =pp-yield=
 
-   This "Rascalish" variant was produced from the Haskellish one. What
-   was necessary in this "port" was to deal with paradigm differences,
-   involving things such as implementing laziness explicitly, and
-   replacing deep recursion with loops. We then produced a Rascal port
-   based on this code, basically by just dealing with superficial
-   language differences, and library differences.
+    This branch contains a straighforward translation of the Haskell-based algorithm. Particularly the =make-annotate-width= function is highly similar to the original =trHPP= function. A more Racket-idiomatic implementation would be preferable, but as this function is rather intricate, we chose to do a fairly direct translation at least initially.
 
-** =pgf_groupings=
+    The one problem with this implementation is that some of the auxiliary data structures used do not have all of the stringent algorithmic properties that the algorithm requires to achieve linear-time performance. We would require something like Haskell's =Data.Sequence= for Racket. The good news is that this problem is limited to the =make-annotate-width= function, and it should be easy enough to switch to a better data structure once we find one. We are currently using an implementation of Okasaki's /banker's deque/, which has many of the required properties, but not all.
 
-   This variant builds extensions onto the Rascalish variant of the
-   codebase. The most notable extension is support for "groupings",
-   which allows for operations such as =group= and =flatten= (and
-   anything, really) to be represented as tokens within token
-   sequences.
+    Interestingly, the pipeline itself requires no explicit data structure, thanks to the =yield= based approach of immediately passing tokens from one processor to another, without any pipe data structure in between.
+
+** Adaptation of Wadler's Pretty Printing Algorithm
+
+   These branches are particularly focused on developing variations of Wadler's "prettier printer" algorithm. It is a step-by-step derivation from the original Haskell implementation, first a fairly faithful adaptation (=haskellish= branch), then diverging to be easier to implement in more traditional-style languages such as Rascal and Java (=rascalish= branch), and finally being further adjusted to better fit the PGF pipeline (=pgf_groupings= branch).
+
+*** =haskellish=
+
+    This "Haskellish" variant aims to be a faithful adaptation of Philip
+    Wadler's pretty printer to Racket. In fact it's such a
+    straightforward translation of the Haskell code listing given in
+    Wadler's paper [1] that it may be covered by Wadler's copyright. The
+    goal here is to make the Racket port such that anyone comparing it
+    against what is given in Wadler's paper would be convinced that it
+    implements the same algorithm.
+    
+    In my opinion the Racket code reads much the same as the Haskell
+    code. The Racket version defines some custom macros to enable this.
+    The remaining differences in the way the code reads is that the
+    Racket version is not using overloading or pattern matching, which
+    are somewhat atypical in Scheme code, and also that laziness is
+    somewhat more explicit in the Racket code, but not overly so.
+    
+    Racket includes the =match= pattern matcher and also a =struct*=
+    pattern form which we could have used, but given that the patterns
+    used in the Haskell code were rather simple, we feel that this would
+    not have given enough benefit to make up for the loss of idiomatic
+    Scheme. We could have also devised some kind of multimethods with
+    pattern-based dynamic dispatch, but given the fixed set of pretty
+    printing primitives this also didn't seem worthwhile, and we're
+    simply doing our "dispatch" within functions using =cond= and other
+    conditional expressions.
+    
+    The most significant difference while translating was Haskell's lazy
+    evaluation semantics vs. Racket's strict evaluation semantics. Had
+    we not used promises to address this issue it would have destroyed
+    the performance of the Racket version; for instance formatting this
+    document with the Racket version would not have been feasible. Hence
+    we added "even" laziness to all the right places without completely
+    overhauling the Racket code. Our approach is based on Wadler's own
+    paper on laziness [2].
+
+*** =rascalish=
+
+    This "Rascalish" variant was produced from the Haskellish one. What
+    was necessary in this "port" was to deal with paradigm differences,
+    involving things such as implementing laziness explicitly, and
+    replacing deep recursion with loops. We then produced a Rascal port
+    based on this code, basically by just dealing with superficial
+    language differences, and library differences.
+
+*** =pgf_groupings=
+
+    This variant builds extensions onto the Rascalish variant of the
+    codebase. The most notable extension is support for "groupings",
+    which allows for operations such as =group= and =flatten= (and
+    anything, really) to be represented as tokens within token
+    sequences.
 
 * License
 
@@ -106,3 +113,13 @@ being further adjusted to better fit the PGF pipeline.
 [2] Philip Wadler, Walid Taha, and David MacQueen. How to add laziness
     to a strict language, without even being odd. Workshop on Standard
     ML, Baltimore, September 1998.
+
+[3] Roshan P. James and Amr Sabry. Yield: Mainstream delimited
+    continuations. First International Workshop on the Theory and
+    Practice of Delimited Continuations (TPDC 2011), Novi Sad, Serbia,
+    May 2011.
+
+[4] Kiselyov, Oleg and Peyton-Jones, Simon and Sabry, Amr. Lazy v.
+    Yield: Incremental, Linear Pretty-Printing. 10th Asian Symposium
+    on Programming Languages and Systems (APLAS 2012). Kyoto, Japan,
+    December 2012.
