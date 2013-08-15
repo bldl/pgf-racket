@@ -9,7 +9,7 @@ This repository contains various experiments used during the development of the 
 
 ** Port of Kiselyov et al's Pretty Printer
 
-   We have made a Racket port of Kiselyov et al's Haskell-based [[http://okmij.org/ftp/continuations/PPYield/][solution]] [4] to the bounded-lookahead, linear-time, incremental pretty printing problem. Their solution makes use of a =yield= construct similar to what one finds in Ruby and many other languages [3]. Their (monadic) implementation of =yield= however does not require full first-class delimited continuations (such as created by Racket's =call-with-continuation-prompt=), but rather is based on much lighter-weight /simple generators/. Our implementation of =yield= uses Racket's support for dynamic binding (e.g., /parameterization/); this approach is semantically equivalent to the Haskell implementation's use of the =Reader= monad to store the =yield= target in the dynamic environment.
+   We have made a Racket port of Kiselyov et al's Haskell-based [[http://okmij.org/ftp/continuations/PPYield/][solution]] [4] to the bounded-lookahead, linear-time, incremental pretty printing problem. Their solution makes use of a =yield= construct similar to what one finds in Ruby and many other languages [3]. Their (monadic) implementation of =yield= however does not require full first-class delimited continuations (such as created by Racket's =call-with-continuation-prompt= [5]), but rather is based on much lighter-weight /simple generators/. Our implementation of =yield= uses Racket's support for dynamic binding (i.e., /parameterization/); this approach is semantically equivalent to the Haskell implementation's use of the =Reader= monad to store the =yield= target in the dynamic environment.
 
 *** =pp-yield=
 
@@ -121,5 +121,10 @@ This repository contains various experiments used during the development of the 
 
 [4] Kiselyov, Oleg and Peyton-Jones, Simon and Sabry, Amr. Lazy v.
     Yield: Incremental, Linear Pretty-Printing. 10th Asian Symposium
-    on Programming Languages and Systems (APLAS 2012). Kyoto, Japan,
+    on Programming Languages and Systems (APLAS 2012), Kyoto, Japan,
     December 2012.
+
+[5] Matthew Flatt and Gang Yu and Robert Bruce Findler and Matthias
+    Felleisen. Adding Delimited and Composable Control to a Production
+    Programming Environment. International Conference on Functional
+    Programming (ICFP 2007), Freiburg, Germany, October 2007.
