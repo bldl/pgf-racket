@@ -7,12 +7,9 @@ stream type. The invariant maintained for [lenf f lenr r] is (and (<=
 lenf (+ (* (dq-factor) lenr) 1)) (<= lenr (+ (* (dq-factor) lenf)
 1))), for some constant '(dq-factor)', in order to maintain balance.
 'f' means "front" and 'r' means "rear". The algorithm supports every
-deque operation in O(1) amortized time. dq-each is an exception, and
-is not even O(n).
-
-TODO Earlier we used Clojure's lazy sequences as the stream type.
-Check that our choice of using Racket lists is also appropriate to
-maintain time/space characteristics of the algorithm.
+deque operation in O(1) amortized time, with the exception of
+concatenation and iteration. Note that reversing could be implemented
+in constant time.
 
 |#
 
@@ -190,6 +187,7 @@ maintain time/space characteristics of the algorithm.
 		(check lenf (Deque-f q) (- lenr 1) (rest r))))))))
 
 ;; Appends another deque 'qa' to the front.
+;; Not a constant time operation.
 (define* (dq-prepend q qa)
   (let ((lenf (Deque-lenf q))
         (lenr (Deque-lenr q))
@@ -204,6 +202,7 @@ maintain time/space characteristics of the algorithm.
 	     lenr (Deque-r q))))))
 
 ;; Appends another deque 'qa' to the rear.
+;; Not a constant time operation.
 (define* (dq-append q qa)
   (let ((lenf (Deque-lenf q))
         (lenr (Deque-lenr q))
@@ -217,6 +216,7 @@ maintain time/space characteristics of the algorithm.
 	     (+ lenr qa-lenf qa-lenr)
 	     (append (Deque-r qa) (reverse (Deque-f qa)) (Deque-r q)))))))
 
+;; This should still be a linear time operation despite the 'reverse'.
 (define* (dq-each q f)
   (for-each f (Deque-f q))
   (for-each f (reverse (Deque-r q))))
