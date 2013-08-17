@@ -217,6 +217,7 @@ in constant time.
 	     (append (Deque-r qa) (reverse (Deque-f qa)) (Deque-r q)))))))
 
 ;; This should still be a linear time operation despite the 'reverse'.
+;; But linear space is also required.
 (define* (dq-each q f)
   (for-each f (Deque-f q))
   (for-each f (reverse (Deque-r q))))

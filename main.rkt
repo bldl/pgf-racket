@@ -33,7 +33,7 @@ algorithmic properties.
 ;; TODO We require very stringent algorithmic properties for state
 ;; updates and queries for the overall algorithm to get the original
 ;; properties. We miss the mark here only because dq-append is not
-;; O(1) amortized time.
+;; O(1) amortized time, and because dq-each is not constant space.
 (struct GrpSt (p q) #:transparent #:mutable)
 
 (define grp-empty (GrpSt 0 dq-empty))
