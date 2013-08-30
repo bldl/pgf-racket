@@ -8,8 +8,7 @@ lenf (+ (* (dq-factor) lenr) 1)) (<= lenr (+ (* (dq-factor) lenf)
 1))), for some constant '(dq-factor)', in order to maintain balance.
 'f' means "front" and 'r' means "rear". The algorithm supports every
 deque operation in O(1) amortized time, with the exception of
-concatenation and iteration. Note that reversing could be implemented
-in constant time.
+concatenation and iteration.
 
 |#
 
@@ -221,3 +220,8 @@ in constant time.
 (define* (dq-each q f)
   (for-each f (Deque-f q))
   (for-each f (reverse (Deque-r q))))
+
+;; A constant-time operation.
+(define* (dq-reverse q)
+  (Deque (Deque-lenr q) (Deque-r q)
+         (Deque-lenf q) (Deque-f q)))
